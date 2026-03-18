@@ -168,7 +168,10 @@ textarea{resize:vertical;min-height:64px;}
     <div class="nav-label">Config</div>
     <button class="nav-btn" onclick="sp('settings')"><span class="nav-dot"></span>API Key</button>
   </div>
-  <div class="sidebar-footer">v2.0 — AI Edition</div>
+  <div class="sidebar-footer" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>v3.0 — AI Edition</span>
+    <span id="key-status-dot" title="AI key status" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;"></span>
+  </div>
 </div>
 
 <!-- MAIN -->
@@ -422,14 +425,15 @@ function saveKey() {
   const k = document.getElementById('set-key').value.trim();
   if (!k) return;
   localStorage.setItem('qps_key', k);
-  document.getElementById('key-msg').innerHTML = '<span style="color:var(--accent);">✓ Key saved successfully.</span>';
+  document.getElementById('key-msg').innerHTML = '<span style="color:var(--accent);">✓ Key saved permanently — you will not be asked again.</span>';
+  updateKeyStatus();
 }
 
 // ─── API CALL — Google Gemini Flash ──────────────────────
 async function claude(prompt) {
   const key = getKey();
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -811,6 +815,82 @@ function pf(id){return parseFloat(document.getElementById(id)?.value)||0;}
 function pf2(el){return parseFloat(el?.value)||0;}
 
 rdash();
+
+// ─── KEY STATUS INDICATOR ────────────────────────────────
+function updateKeyStatus() {
+  const k = getKey();
+  const dot = document.getElementById('key-status-dot');
+  if (!dot) return;
+  if (k) {
+    dot.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#1D9E75;display:inline-block;"></span><span style="color:#1D9E75;">AI Ready</span>';
+  } else {
+    dot.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#BA7517;display:inline-block;"></span><span style="color:#BA7517;">No Key</span>';
+  }
+}
+
+// ─── FIRST-TIME MODAL ────────────────────────────────────
+function saveKeyModal() {
+  const k = document.getElementById('mo-key-input').value.trim();
+  if (!k || !k.startsWith('AIza')) {
+    document.getElementById('mo-key-err').textContent = 'Please enter a valid Google API key (starts with AIzaSy...)';
+    return;
+  }
+  localStorage.setItem('qps_key', k);
+  // Also sync to settings page input if visible
+  const settingsInput = document.getElementById('set-key');
+  if (settingsInput) settingsInput.value = k;
+  document.getElementById('mo-firstkey').style.display = 'none';
+  updateKeyStatus();
+}
+
+function skipKeyModal() {
+  // Mark as seen so it doesn't show again this session
+  sessionStorage.setItem('key_modal_skipped', '1');
+  document.getElementById('mo-firstkey').style.display = 'none';
+}
+
+// ─── INIT ────────────────────────────────────────────────
+(function init() {
+  updateKeyStatus();
+  // Show first-time modal only if no key saved AND not skipped this session
+  const hasKey = !!getKey();
+  const skipped = sessionStorage.getItem('key_modal_skipped');
+  if (!hasKey && !skipped) {
+    setTimeout(() => {
+      document.getElementById('mo-firstkey').style.display = 'flex';
+    }, 600); // slight delay so app loads first
+  }
+})();
 </script>
+
+<!-- FIRST-TIME KEY MODAL -->
+<div id="mo-firstkey" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;border:1px solid #E2E8F0;width:460px;max-width:95vw;padding:28px;">
+    <div style="font-size:18px;font-weight:600;margin-bottom:6px;">Welcome to Quick Pre Study</div>
+    <div style="font-size:13px;color:#718096;margin-bottom:20px;line-height:1.6;">
+      To unlock AI-powered PSF estimation, area study, and layout prefill, paste your <strong>Google Gemini API key</strong> below.<br>
+      Your key is saved permanently in this browser — you will <strong>never be asked again</strong> on this device.
+    </div>
+    <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;">Google API Key (AIzaSy...)</label>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input type="password" id="mo-key-input" placeholder="AIzaSy..." onkeydown="if(event.key==='Enter')saveKeyModal()"
+        style="flex:1;padding:9px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;font-family:inherit;">
+      <button onclick="saveKeyModal()" style="padding:9px 18px;background:#1D9E75;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;white-space:nowrap;">
+        Save & Start
+      </button>
+    </div>
+    <div id="mo-key-err" style="font-size:12px;color:#A32D2D;min-height:16px;margin-bottom:12px;"></div>
+    <div style="border-top:1px solid #F1F5F9;padding-top:14px;font-size:12px;color:#718096;line-height:1.7;">
+      <strong>How to get your key (free):</strong><br>
+      1. Go to <a href="https://aistudio.google.com" target="_blank" style="color:#185FA5;">aistudio.google.com</a> → sign in with Google<br>
+      2. Click <strong>Get API Key</strong> → <strong>Create API Key</strong><br>
+      3. Copy and paste it above<br><br>
+      <span style="opacity:.7">Or skip for now — the app still works with Smart Fill (built-in knowledge base).</span>
+    </div>
+    <div style="margin-top:14px;text-align:right;">
+      <button onclick="skipKeyModal()" style="background:none;border:none;font-size:12px;color:#718096;cursor:pointer;text-decoration:underline;">Skip for now</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
