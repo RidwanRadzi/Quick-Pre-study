@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Pre Study — Bulk Acquisition Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --accent:#1D9E75;--accent-light:#E1F5EE;--accent-dark:#085041;
+  --warn:#BA7517;--warn-light:#FAEEDA;
+  --danger:#A32D2D;--danger-light:#FCEBEB;
+  --purple:#534AB7;--purple-light:#EEEDFE;--purple-dark:#3C3489;
+  --bg:#F8F9FA;--surface:#fff;--border:#E2E8F0;--text:#1A202C;--muted:#718096;
+  --radius:10px;--radius-sm:6px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);display:flex;min-height:100vh;}
+/* ---- SIDEBAR ---- */
+#sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:20;}
+.logo{padding:20px 16px 14px;border-bottom:1px solid var(--border);}
+.logo .brand{font-size:15px;font-weight:600;color:var(--accent);}
+.logo .tagline{font-size:11px;color:var(--muted);margin-top:2px;}
+.nav-group{padding:12px 8px 4px;}
+.nav-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:0 8px 6px;}
+.nav-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--muted);border:none;background:none;width:100%;text-align:left;transition:all .15s;}
+.nav-btn:hover{background:#F1F5F9;color:var(--text);}
+.nav-btn.active{background:var(--accent-light);color:var(--accent-dark);font-weight:500;}
+.nav-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
+/* ---- MAIN ---- */
+#main{flex:1;margin-left:220px;display:flex;flex-direction:column;min-width:0;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.topbar-title{font-size:15px;font-weight:600;}
+.topbar-sub{font-size:12px;color:var(--muted);margin-top:1px;}
+/* ---- BUTTONS ---- */
+.btn{padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s;}
+.btn:hover{background:#F1F5F9;}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:var(--accent-dark);border-color:var(--accent-dark);}
+.btn-ai{background:var(--purple);color:#fff;border-color:var(--purple);display:inline-flex;align-items:center;gap:6px;}
+.btn-ai:hover{background:var(--purple-dark);border-color:var(--purple-dark);}
+.btn-danger{color:var(--danger);border-color:#FECACA;}
+.btn-sm{padding:5px 10px;font-size:12px;}
+/* ---- PAGES ---- */
+.page{display:none;padding:24px;}
+.page.active{display:block;}
+/* ---- CARDS ---- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;}
+/* ---- GRID ---- */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+/* ---- FORMS ---- */
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:#fff;color:var(--text);transition:border .15s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+textarea{resize:vertical;min-height:64px;}
+.row{display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;}
+.row>*{flex:1;}
+/* ---- METRICS ---- */
+.metric{background:#F8FAFC;border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border);}
+.metric-label{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.metric-val{font-size:22px;font-weight:600;}
+.green{color:var(--accent);}
+.amber{color:var(--warn);}
+.red{color:var(--danger);}
+/* ---- BADGES ---- */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.b-green{background:var(--accent-light);color:var(--accent-dark);}
+.b-amber{background:var(--warn-light);color:var(--warn);}
+.b-red{background:var(--danger-light);color:var(--danger);}
+.b-purple{background:var(--purple-light);color:var(--purple-dark);}
+/* ---- TABLE ---- */
+.dtable{width:100%;border-collapse:collapse;font-size:13px;}
+.dtable th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);}
+.dtable td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.dtable tr:hover td{background:#F8FAFC;}
+.dtable tr:last-child td{border-bottom:none;}
+/* ---- STEPS ---- */
+.steps{display:flex;margin-bottom:24px;}
+.step{flex:1;text-align:center;padding-bottom:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--muted);}
+.step.active{border-color:var(--accent);color:var(--accent);font-weight:500;}
+.step.done{border-color:var(--accent);color:var(--muted);}
+/* ---- RESULT HIGHLIGHT ---- */
+.rh{border-left:3px solid var(--accent);padding:12px 16px;background:var(--accent-light);border-radius:0 var(--radius-sm) var(--radius-sm) 0;margin-bottom:10px;}
+.rh .rl{font-size:11px;color:var(--accent-dark);font-weight:500;margin-bottom:3px;}
+.rh .rv{font-size:18px;font-weight:600;color:var(--accent-dark);}
+.rh.am{border-color:var(--warn);background:var(--warn-light);}
+.rh.am .rl,.rh.am .rv{color:var(--warn);}
+/* ---- LAYOUT ROW ---- */
+.lrow{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;background:#fff;}
+.lrow-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+/* ---- CF GRID ---- */
+.cfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.cfc{background:#F8FAFC;padding:8px 10px;border-radius:5px;border:1px solid var(--border);}
+.cfc .cl{font-size:10px;color:var(--muted);margin-bottom:2px;}
+.cfc .cv{font-size:13px;font-weight:500;}
+.cfc .cv.pos{color:var(--accent);}
+.cfc .cv.neg{color:var(--danger);}
+/* ---- AI BOX ---- */
+.aibox{border:1px solid #AFA9EC;border-radius:var(--radius-sm);padding:13px 15px;background:var(--purple-light);margin-bottom:14px;}
+.aibox-hd{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:12px;font-weight:500;color:var(--purple-dark);}
+.aibox-body{font-size:13px;color:#26215C;line-height:1.6;}
+.ai-thinking{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--purple);}
+.dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--purple);animation:dp 1.2s ease-in-out infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes dp{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+.aibox.err{border-color:#F09595;background:var(--danger-light);}
+.aibox.err .aibox-body{color:var(--danger);}
+/* ---- AI-FILLED INPUTS ---- */
+.ai-filled{border-color:#AFA9EC !important;background:#EEEDFE22 !important;}
+/* ---- PROJ CARD ---- */
+.pcard{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;cursor:pointer;transition:border .15s;}
+.pcard:hover{border-color:var(--accent);}
+.pcard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.pcard-name{font-weight:600;font-size:14px;}
+.pcard-dev{font-size:12px;color:var(--muted);margin-top:2px;}
+.pmeta{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.chip{font-size:11px;background:#F1F5F9;padding:3px 8px;border-radius:4px;color:var(--muted);}
+/* ---- MODAL ---- */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:#fff;border-radius:var(--radius);border:1px solid var(--border);width:520px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.15);}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+/* ---- INFO ROW ---- */
+.ir{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.ir:last-child{border-bottom:none;}
+.ir .il{color:var(--muted);}
+.ir .iv{font-weight:500;}
+.ir .iv.g{color:var(--accent);}
+.ir .iv.r{color:var(--danger);}
+/* ---- EMPTY ---- */
+.empty{text-align:center;padding:48px 24px;color:var(--muted);}
+/* ---- WARN BANNER ---- */
+.warn-banner{background:var(--warn-light);border:1px solid #EF9F27;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--warn);}
+.warn-banner button{margin-left:auto;}
+/* ---- API KEY PAGE ---- */
+.keycard{background:#F8FAFC;border:1px dashed var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo">
+    <div class="brand">Quick Pre Study</div>
+    <div class="tagline">AI Bulk Acquisition Tool</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Overview</div>
+    <button class="nav-btn active" onclick="sp('dashboard')"><span class="nav-dot"></span>Dashboard</button>
+    <button class="nav-btn" onclick="sp('projects')"><span class="nav-dot"></span>Projects</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Analysis</div>
+    <button class="nav-btn" onclick="sp('study')"><span class="nav-dot"></span>New Study</button>
+    <button class="nav-btn" onclick="sp('cashflow')"><span class="nav-dot"></span>Cashflow Projection</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Reports</div>
+    <button class="nav-btn" onclick="sp('tracker')"><span class="nav-dot"></span>Acquisition Tracker</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Config</div>
+    <button class="nav-btn" onclick="sp('settings')"><span class="nav-dot"></span>API Key</button>
+  </div>
+  <div class="sidebar-footer">v2.0 — AI Edition</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="tt">Dashboard</div>
+      <div class="topbar-sub" id="ts">Overview of all pre-study projects</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="sp('study')">+ New Study</button>
+      <button class="btn btn-primary btn-sm" onclick="sp('tracker')">View Tracker</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="g4" style="margin-bottom:16px;">
+      <div class="metric"><div class="metric-label">Total Projects</div><div class="metric-val" id="d-total">0</div></div>
+      <div class="metric"><div class="metric-label">Possible</div><div class="metric-val green" id="d-pos">0</div></div>
+      <div class="metric"><div class="metric-label">Less Possible</div><div class="metric-val amber" id="d-lp">0</div></div>
+      <div class="metric"><div class="metric-label">Not Viable</div><div class="metric-val red" id="d-nv">0</div></div>
+    </div>
+    <div class="card"><div class="card-title">Recent Projects</div><div id="d-recent"></div></div>
+  </div>
+
+  <!-- PROJECTS -->
+  <div class="page" id="page-projects"><div id="proj-list"></div></div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-title">Anthropic API Key</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        The AI Suggest buttons use Claude via the Anthropic API. Your key is stored only in this browser — never sent to any other server.
+      </p>
+      <div class="keycard">
+        <div class="row" style="margin-bottom:0;">
+          <div><label>API Key (sk-ant-...)</label><input type="password" id="set-key" placeholder="sk-ant-api03-..."></div>
+          <div style="flex:0;"><button class="btn btn-primary" onclick="saveKey()" style="margin-top:20px;">Save</button></div>
+        </div>
+        <div id="key-msg" style="margin-top:8px;font-size:12px;"></div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+        <strong>How to get a key:</strong><br>
+        1. Go to <strong>console.anthropic.com</strong> and sign up (free)<br>
+        2. Click <strong>API Keys</strong> → <strong>Create Key</strong><br>
+        3. Copy the key and paste it above<br>
+        4. Free credits ($5) are given on signup — enough for ~1,000 AI calls
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW STUDY -->
+  <div class="page" id="page-study">
+    <div class="steps">
+      <div class="step active" id="stp1">1. Project Info</div>
+      <div class="step" id="stp2">2. Area Study</div>
+      <div class="step" id="stp3">3. Rental Study</div>
+      <div class="step" id="stp4">4. Verdict</div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div id="ss1">
+      <div id="w1"></div>
+      <div class="card">
+        <div class="card-title">Project Information</div>
+        <div class="row">
+          <div><label>Project Code</label><input id="s-code" placeholder="e.g. TPR" oninput="this.value=this.value.toUpperCase()"></div>
+          <div><label>State</label><select id="s-state"><option>SEL</option><option>KL</option><option>JHR</option><option>PNG</option><option>SBH</option><option>SWK</option><option>NSN</option><option>MLK</option><option>KDH</option><option>PRK</option><option>PHG</option><option>TRG</option><option>KTN</option><option>PLS</option></select></div>
+        </div>
+        <div class="row"><div><label>Developer Name</label><input id="s-dev" placeholder="e.g. SCP (Balakong) Sdn Bhd"></div></div>
+        <div class="row"><div><label>Project Name</label><input id="s-proj" placeholder="e.g. Residensi Cheras Selatan 2 (Traders Park Residence)"></div></div>
+        <div class="row">
+          <div><label>Units Available (unsold)</label><input id="s-units" type="number" placeholder="243"></div>
+          <div><label>Year Completion</label><input id="s-year" type="number" placeholder="2024"></div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:12px;font-weight:500;color:var(--muted);">PSF REFERENCE</span>
+          <button class="btn btn-ai btn-sm" onclick="aiPSF()">✦ AI Suggest PSF</button>
+        </div>
+        <div id="ai-psf"></div>
+        <div class="row">
+          <div><label>Transaction Median PSF (RM)</label><input id="s-mpsf" type="number" placeholder="556"></div>
+          <div><label>Asking Price PSF (RM)</label><input id="s-apsf" type="number" placeholder="629"></div>
+        </div>
+        <div><label>Rental Options</label>
+          <div style="display:flex;gap:14px;margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text);cursor:pointer;"><input type="checkbox" id="ro-w" checked>Whole Unit</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text);cursor:pointer;"><input type="checkbox" id="ro-r">Room</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text);cursor:pointer;"><input type="checkbox" id="ro-a">Airbnb</label>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn btn-primary" onclick="gs(2)">Next: Area Study →</button></div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="ss2" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">Area & Market Study</div>
+          <button class="btn btn-ai btn-sm" onclick="aiArea()">✦ AI Pre-fill Area</button>
+        </div>
+        <div id="ai-area"></div>
+        <div class="row">
+          <div><label>Nearest LRT / MRT / KTM</label><input id="s-transit" placeholder="e.g. Chan Sow Lin LRT (800m)"></div>
+          <div><label>Nearby Employment Hub</label><input id="s-hub" placeholder="e.g. KLCC, Cyberjaya, Putrajaya"></div>
+        </div>
+        <div class="row">
+          <div><label>Nearby Schools / University</label><input id="s-school" placeholder="e.g. UPM, SMK Cheras"></div>
+          <div><label>Nearby Mall / Amenities</label><input id="s-mall" placeholder="e.g. Ikea Cheras, MyTown"></div>
+        </div>
+        <div class="row">
+          <div><label>Area Demand Level</label><select id="s-demand"><option>High</option><option>Medium</option><option>Low</option></select></div>
+          <div><label>Competitor Projects Nearby</label><input id="s-comp" placeholder="e.g. 3 similar projects within 1km"></div>
+        </div>
+        <div class="row"><div><label>Area Study Notes</label><textarea id="s-anotes" placeholder="AI will fill this, or write your observations here..."></textarea></div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <button class="btn" onclick="gs(1)">← Back</button>
+        <button class="btn btn-primary" onclick="gs(3)">Next: Rental Study →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div id="ss3" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">Layout Configuration</div>
+          <button class="btn btn-ai btn-sm" onclick="aiLayouts()">✦ AI Suggest Layouts</button>
+        </div>
+        <div id="ai-lyt"></div>
+        <div id="lyt-builder">
+          <div class="lrow" id="lyt-0">
+            <div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout 1</span><button class="btn btn-danger btn-sm" onclick="rmLyt('lyt-0')">Remove</button></div>
+            <div class="row">
+              <div><label>Type Label</label><input class="lt" placeholder="Type B"></div>
+              <div><label>Bedroom</label><select class="lb"><option>Studio</option><option>1br</option><option selected>2br</option><option>3br</option><option>3+1br</option><option>4br</option></select></div>
+              <div><label>Size (sqft)</label><input class="ls" type="number" placeholder="604"></div>
+            </div>
+            <div class="row">
+              <div><label>SPA Price (RM)</label><input class="lp" type="number" placeholder="522278"></div>
+              <div><label>Rental Low (RM/mo)</label><input class="lrl" type="number" placeholder="1800"></div>
+              <div><label>Rental High (RM/mo)</label><input class="lrh" type="number" placeholder="2200"></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="addLyt()">+ Add Layout</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Financing Parameters</div>
+        <div class="row">
+          <div><label>Tenure (years)</label><input id="s-ten" type="number" value="35"></div>
+          <div><label>Interest P.A. (%)</label><input id="s-rate" type="number" step="0.01" value="3.80"></div>
+          <div><label>Maintenance (RM/sf/mo)</label><input id="s-maint" type="number" step="0.01" value="0.30"></div>
+        </div>
+        <div class="row">
+          <div><label>Sinking Fund (RM/sf/mo)</label><input id="s-sink" type="number" step="0.01" value="0.05"></div>
+          <div><label>LPPSA Rate P.A. (%)</label><input id="s-lppsa" type="number" step="0.01" value="4.00"></div>
+          <div></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <button class="btn" onclick="gs(2)">← Back</button>
+        <button class="btn btn-primary" onclick="runCalc()">Calculate & Analyse →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div id="ss4" style="display:none;">
+      <div id="calc-out"></div>
+      <div class="card">
+        <div class="card-title">Sourcing Verdict</div>
+        <div class="row">
+          <div><label>Overall Verdict</label><select id="s-verdict"><option>Possible</option><option>Less Possible</option><option>Not Viable</option></select></div>
+        </div>
+        <div class="row"><div><label>Explanation / Notes</label><textarea id="s-exp" style="min-height:80px;" placeholder="e.g. Rental stable, BE below median, BTE is negotiable with developer..."></textarea></div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <button class="btn" onclick="gs(3)">← Back</button>
+        <button class="btn btn-primary" onclick="savePrj()">Save to Tracker ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CASHFLOW -->
+  <div class="page" id="page-cashflow">
+    <div class="card">
+      <div class="card-title">Select Project</div>
+      <select id="cf-sel" onchange="loadCF()"><option value="">— Select a saved project —</option></select>
+    </div>
+    <div id="cf-out"></div>
+  </div>
+
+  <!-- TRACKER -->
+  <div class="page" id="page-tracker">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;">Acquisition Tracker</div>
+        <button class="btn btn-sm" onclick="exportCSV()">Export CSV</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="dtable">
+          <thead><tr><th>No.</th><th>Code</th><th>State</th><th>Developer</th><th>Project</th><th>Price to BE (PSF)</th><th>Best to Enter (PSF)</th><th>Verdict</th><th>Explanation</th><th></th></tr></thead>
+          <tbody id="tracker-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div><!-- /main -->
+
+<!-- MODAL: Saved -->
+<div class="overlay" id="mod-saved">
+  <div class="modal" style="text-align:center;padding:40px;">
+    <div style="width:52px;height:52px;background:var(--accent-light);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Project Saved!</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;">Added to Acquisition Tracker.</div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button class="btn" onclick="closeMS();sp('study')">New Study</button>
+      <button class="btn btn-primary" onclick="closeMS();sp('tracker')">View Tracker →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detail -->
+<div class="overlay" id="mod-detail">
+  <div class="modal">
+    <div class="modal-title" id="md-name"></div>
+    <div class="modal-sub" id="md-dev"></div>
+    <div id="md-body"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeMD()">Close</button>
+      <button class="btn btn-primary" onclick="loadFromDetail()">View Cashflow →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+let P = [];
+try { P = JSON.parse(localStorage.getItem('qps_v2') || '[]'); } catch(e) { P = []; }
+let CS = {}, viewIdx = -1, lc = 1;
+
+// ─── API KEY ─────────────────────────────────────────────
+function getKey() { return localStorage.getItem('qps_key') || ''; }
+function saveKey() {
+  const k = document.getElementById('set-key').value.trim();
+  if (!k) return;
+  localStorage.setItem('qps_key', k);
+  document.getElementById('key-msg').innerHTML = '<span style="color:var(--accent);">✓ Key saved successfully.</span>';
+}
+
+// ─── API CALL ─────────────────────────────────────────────
+async function claude(prompt) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getKey(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+  });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message);
+  return d.content[0].text;
+}
+
+function noKey(id) {
+  document.getElementById(id).innerHTML = `<div class="warn-banner">No API key set. <button class="btn btn-sm" onclick="sp('settings')">Set API Key →</button></div>`;
+  return true;
+}
+
+function thinking(id, msg) {
+  document.getElementById(id).innerHTML = `<div class="aibox"><div class="ai-thinking"><div class="dots"><span></span><span></span><span></span></div> ${msg}</div></div>`;
+}
+
+function aiShow(id, html) {
+  document.getElementById(id).innerHTML = `<div class="aibox"><div class="aibox-hd">✦ AI Insight</div><div class="aibox-body">${html}</div></div>`;
+}
+
+function aiErr(id, msg) {
+  document.getElementById(id).innerHTML = `<div class="aibox err"><div class="aibox-body">${msg}</div></div>`;
+}
+
+// ─── AI: PSF ─────────────────────────────────────────────
+async function aiPSF() {
+  if (!getKey()) { noKey('ai-psf'); return; }
+  const proj = v('s-proj'), dev = v('s-dev'), state = v('s-state'), yr = v('s-year');
+  if (!proj) { alert('Enter project name first.'); return; }
+  thinking('ai-psf', 'Estimating market PSF for ' + proj + '...');
+  try {
+    const raw = await claude(`You are a Malaysian property analyst. Estimate realistic PSF for this project.
+Project: ${proj}
+Developer: ${dev || 'Unknown'}
+State: ${state}
+Year: ${yr || 'Unknown'}
+Reply ONLY in JSON, no extra text:
+{"median_psf":550,"asking_psf":620,"reason":"Brief 2-sentence rationale.","rental_hint":"RM1800-2200/mo (2br), RM2200-2600/mo (3br)"}`);
+    const d = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    si('s-mpsf', d.median_psf); si('s-apsf', d.asking_psf);
+    ['s-mpsf','s-apsf'].forEach(id => document.getElementById(id).classList.add('ai-filled'));
+    aiShow('ai-psf', `<strong>Median PSF: RM${d.median_psf}</strong> &nbsp;|&nbsp; <strong>Asking PSF: RM${d.asking_psf}</strong><br><span style="font-size:12px;display:block;margin-top:4px;">${d.reason}</span><span style="font-size:11px;color:var(--purple-dark);display:block;margin-top:3px;">Rental hint: ${d.rental_hint}</span>`);
+  } catch(e) { aiErr('ai-psf', 'Error: ' + e.message + '. Verify your API key in Settings.'); }
+}
+
+// ─── AI: AREA ────────────────────────────────────────────
+async function aiArea() {
+  if (!getKey()) { noKey('ai-area'); return; }
+  const proj = v('s-proj'), state = v('s-state'), dev = v('s-dev');
+  if (!proj) { alert('Enter project name first.'); return; }
+  thinking('ai-area', 'Researching area for ' + proj + '...');
+  try {
+    const raw = await claude(`You are a Malaysian property analyst. Pre-fill an area study for this project.
+Project: ${proj}
+Developer: ${dev || 'Unknown'}
+State: ${state}
+Reply ONLY in JSON, no extra text:
+{"transit":"nearest station and distance","hub":"employment hubs","school":"schools/universities nearby","mall":"malls and amenities","demand":"High or Medium or Low","competitors":"number and names of similar nearby projects","notes":"2-3 sentence analysis of demand drivers, tenant profile, and risks"}`);
+    const d = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    si('s-transit',d.transit); si('s-hub',d.hub); si('s-school',d.school);
+    si('s-mall',d.mall); si('s-comp',d.competitors); si('s-anotes',d.notes);
+    document.getElementById('s-demand').value = d.demand === 'High' ? 'High' : d.demand === 'Low' ? 'Low' : 'Medium';
+    ['s-transit','s-hub','s-school','s-mall','s-comp','s-anotes'].forEach(id => document.getElementById(id).classList.add('ai-filled'));
+    aiShow('ai-area', `Area pre-filled for <strong>${proj}</strong>. Review and adjust based on your ground knowledge.`);
+  } catch(e) { aiErr('ai-area', 'Error: ' + e.message); }
+}
+
+// ─── AI: LAYOUTS ─────────────────────────────────────────
+async function aiLayouts() {
+  if (!getKey()) { noKey('ai-lyt'); return; }
+  const proj = v('s-proj'), state = v('s-state'), mpsf = v('s-mpsf'), apsf = v('s-apsf');
+  if (!proj) { alert('Enter project name first.'); return; }
+  thinking('ai-lyt', 'Suggesting typical layouts for ' + proj + '...');
+  try {
+    const raw = await claude(`You are a Malaysian property analyst helping a bulk purchaser.
+Project: ${proj}
+State: ${state}
+Median PSF: RM${mpsf || 'unknown'}
+Asking PSF: RM${apsf || 'unknown'}
+Suggest 2-3 typical residential layouts for this project with realistic Malaysian market values.
+Reply ONLY in JSON, no extra text:
+{"layouts":[{"type":"Type B","br":"2br","size":604,"spa":522278,"rent_lo":1800,"rent_hi":2200},{"type":"Type C","br":"3br","size":773,"spa":590000,"rent_lo":2100,"rent_hi":2500}]}
+br must be one of: Studio,1br,2br,3br,3+1br,4br. SPA in RM full number. Rental in RM/month.`);
+    const d = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    document.getElementById('lyt-builder').innerHTML = '';
+    lc = 0;
+    d.layouts.forEach((l, i) => {
+      lc++;
+      const id = 'lyt-ai-' + i;
+      const div = document.createElement('div');
+      div.className = 'lrow'; div.id = id;
+      div.innerHTML = `<div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout ${i+1} <span class="badge b-purple" style="font-size:10px;margin-left:4px;">AI</span></span><button class="btn btn-danger btn-sm" onclick="rmLyt('${id}')">Remove</button></div>
+        <div class="row">
+          <div><label>Type Label</label><input class="lt ai-filled" value="${l.type}"></div>
+          <div><label>Bedroom</label><select class="lb">${['Studio','1br','2br','3br','3+1br','4br'].map(o=>`<option${o===l.br?' selected':''}>${o}</option>`).join('')}</select></div>
+          <div><label>Size (sqft)</label><input class="ls ai-filled" type="number" value="${l.size}"></div>
+        </div>
+        <div class="row">
+          <div><label>SPA Price (RM)</label><input class="lp ai-filled" type="number" value="${l.spa}"></div>
+          <div><label>Rental Low (RM/mo)</label><input class="lrl ai-filled" type="number" value="${l.rent_lo}"></div>
+          <div><label>Rental High (RM/mo)</label><input class="lrh ai-filled" type="number" value="${l.rent_hi}"></div>
+        </div>`;
+      document.getElementById('lyt-builder').appendChild(div);
+    });
+    aiShow('ai-lyt', `${d.layouts.length} layouts suggested. Purple-highlighted values are AI estimates — verify against developer's sales kit and current rental listings on iProperty / PropertyGuru.`);
+  } catch(e) { aiErr('ai-lyt', 'Error: ' + e.message); }
+}
+
+// ─── LAYOUT HELPERS ──────────────────────────────────────
+function rmLyt(id) { const el = document.getElementById(id); if(el) el.remove(); }
+function addLyt() {
+  lc++;
+  const id = 'lyt-m-' + lc;
+  const div = document.createElement('div');
+  div.className = 'lrow'; div.id = id;
+  div.innerHTML = `<div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout ${lc}</span><button class="btn btn-danger btn-sm" onclick="rmLyt('${id}')">Remove</button></div>
+    <div class="row">
+      <div><label>Type Label</label><input class="lt" placeholder="Type D"></div>
+      <div><label>Bedroom</label><select class="lb"><option>Studio</option><option>1br</option><option>2br</option><option>3br</option><option>3+1br</option><option>4br</option></select></div>
+      <div><label>Size (sqft)</label><input class="ls" type="number" placeholder="800"></div>
+    </div>
+    <div class="row">
+      <div><label>SPA Price (RM)</label><input class="lp" type="number" placeholder="500000"></div>
+      <div><label>Rental Low (RM/mo)</label><input class="lrl" type="number" placeholder="2000"></div>
+      <div><label>Rental High (RM/mo)</label><input class="lrh" type="number" placeholder="2500"></div>
+    </div>`;
+  document.getElementById('lyt-builder').appendChild(div);
+}
+
+// ─── CALCULATE ───────────────────────────────────────────
+function instalment(p, ra, ty) {
+  const r = ra/100/12, n = ty*12;
+  return r === 0 ? p/n : p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+}
+
+function runCalc() {
+  const tenure=pf('s-ten')||35, rate=pf('s-rate')||3.80, maint=pf('s-maint')||0.30, sink=pf('s-sink')||0.05;
+  const rows = document.querySelectorAll('[id^=lyt-]');
+  const layouts = [];
+  rows.forEach(row => {
+    const t=row.querySelector('.lt')?.value||'', br=row.querySelector('.lb')?.value||'';
+    const sz=pf2(row.querySelector('.ls')), spa=pf2(row.querySelector('.lp'));
+    const rl=pf2(row.querySelector('.lrl')), rh=pf2(row.querySelector('.lrh'));
+    if(sz&&spa) layouts.push({t,br,sz,spa,rl,rh});
+  });
+  if(!layouts.length){alert('Fill in at least one layout.');return;}
+
+  const mt=layouts.map(l=>l.sz*(maint+sink));
+  const rm=layouts.map(l=>(l.rl+l.rh)/2);
+  const iBE=layouts.map((l,i)=>{const r=rate/100/12,n=tenure*12,net=rm[i]-mt[i];return net/r*(1-1/Math.pow(1+r,n));});
+  const pBE=layouts.map((l,i)=>Math.round(iBE[i]/l.sz));
+  const pBTE=pBE.map(p=>Math.round(p*0.85));
+  const beMin=Math.min(...pBE),beMax=Math.max(...pBE),bteMin=Math.min(...pBTE),bteMax=Math.max(...pBTE);
+
+  CS={layouts,pBE,pBTE,iBE,tenure,rate,maint,sink,beMin,beMax,bteMin,bteMax};
+
+  const mpsf=pf('s-mpsf')||0, apsf=pf('s-apsf')||0;
+  const beL=beMin===beMax?beMin+'psf':beMin+'-'+beMax+'psf';
+  const bteL=bteMin===bteMax?bteMin+'psf':bteMin+'-'+bteMax+'psf';
+
+  let html=`<div class="card"><div class="card-title">Calculation Results</div>
+    <div class="g2" style="margin-bottom:14px;">
+      <div class="rh"><div class="rl">Price to Breakeven (BE)</div><div class="rv">${beL}</div></div>
+      <div class="rh am"><div class="rl">Best Price to Enter (BTE)</div><div class="rv">${bteL}</div></div>
+    </div>
+    <div class="ir"><span class="il">Median Transaction PSF</span><span class="iv">RM${mpsf}</span></div>
+    <div class="ir"><span class="il">Asking Price PSF</span><span class="iv">RM${apsf}</span></div>
+    <div class="ir"><span class="il">BE vs Median</span><span class="iv ${beMax<=mpsf?'g':'r'}">${beMax<=mpsf?'BE below median — good ✓':'BE above median — tight margin'}</span></div>
+    <div class="ir"><span class="il">BTE vs Asking</span><span class="iv ${bteMax<=apsf?'g':'r'}">${bteMax<=apsf?'BTE below asking — good entry ✓':'Negotiation needed with developer'}</span></div>
+  </div>`;
+
+  html+=`<div class="card"><div class="card-title">Per Layout Summary</div>`;
+  layouts.forEach((l,i)=>{
+    const inst=Math.round(instalment(iBE[i],rate,tenure));
+    const tc=inst+Math.round(mt[i]), rentA=Math.round(rm[i]), ncf=rentA-tc;
+    html+=`<div class="lrow">
+      <div class="lrow-hd"><span style="font-weight:500;">${l.t} — ${l.br} (${l.sz} sqft)</span><span class="badge ${pBE[i]<=mpsf?'b-green':'b-amber'}">BE: ${pBE[i]} psf</span></div>
+      <div class="cfgrid">
+        <div class="cfc"><div class="cl">Net PSF (BE)</div><div class="cv">${pBE[i]}</div></div>
+        <div class="cfc"><div class="cl">Net PSF (BTE)</div><div class="cv">${pBTE[i]}</div></div>
+        <div class="cfc"><div class="cl">Rental Range</div><div class="cv">RM${l.rl.toLocaleString()}–${l.rh.toLocaleString()}</div></div>
+        <div class="cfc"><div class="cl">Net Price (BE)</div><div class="cv">RM${Math.round(iBE[i]).toLocaleString()}</div></div>
+        <div class="cfc"><div class="cl">Net Price (BTE)</div><div class="cv">RM${Math.round(iBE[i]*0.85).toLocaleString()}</div></div>
+        <div class="cfc"><div class="cl">Net Cashflow</div><div class="cv ${ncf>=0?'pos':'neg'}">${ncf>=0?'+':''}RM${ncf}</div></div>
+      </div>
+    </div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('calc-out').innerHTML=html;
+  document.getElementById('s-verdict').value=beMax<=mpsf?'Possible':bteMin<=apsf?'Less Possible':'Not Viable';
+  gs(4);
+}
+
+// ─── SAVE ────────────────────────────────────────────────
+function savePrj() {
+  const opts=[];
+  if(document.getElementById('ro-w').checked)opts.push('Whole Unit');
+  if(document.getElementById('ro-r').checked)opts.push('Room');
+  if(document.getElementById('ro-a').checked)opts.push('Airbnb');
+  P.push({
+    code:v('s-code'),state:v('s-state'),dev:v('s-dev'),proj:v('s-proj'),
+    units:v('s-units'),year:v('s-year'),mpsf:v('s-mpsf'),apsf:v('s-apsf'),
+    verdict:v('s-verdict'),exp:v('s-exp'),
+    transit:v('s-transit'),hub:v('s-hub'),demand:v('s-demand'),notes:v('s-anotes'),
+    rentalOpts:opts.join(', '),
+    beL:CS.beMin+'-'+CS.beMax+'psf',bteL:CS.bteMin+'-'+CS.bteMax+'psf',
+    layouts:CS.layouts||[],pBE:CS.pBE||[],pBTE:CS.pBTE||[],iBE:CS.iBE||[],
+    tenure:CS.tenure,rate:CS.rate,maint:CS.maint,sink:CS.sink,
+    date:new Date().toLocaleDateString('en-MY')
+  });
+  localStorage.setItem('qps_v2',JSON.stringify(P));
+  document.getElementById('mod-saved').classList.add('open');
+  resetForm();
+}
+
+function resetForm() {
+  ['s-code','s-dev','s-proj','s-units','s-year','s-mpsf','s-apsf','s-transit','s-hub','s-comp','s-school','s-mall','s-anotes','s-exp'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['ai-psf','ai-area','ai-lyt'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  document.getElementById('lyt-builder').innerHTML=`<div class="lrow" id="lyt-0"><div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout 1</span><button class="btn btn-danger btn-sm" onclick="rmLyt('lyt-0')">Remove</button></div><div class="row"><div><label>Type Label</label><input class="lt" placeholder="Type B"></div><div><label>Bedroom</label><select class="lb"><option>Studio</option><option>1br</option><option selected>2br</option><option>3br</option><option>3+1br</option><option>4br</option></select></div><div><label>Size (sqft)</label><input class="ls" type="number" placeholder="604"></div></div><div class="row"><div><label>SPA Price (RM)</label><input class="lp" type="number" placeholder="522278"></div><div><label>Rental Low (RM/mo)</label><input class="lrl" type="number" placeholder="1800"></div><div><label>Rental High (RM/mo)</label><input class="lrh" type="number" placeholder="2200"></div></div></div>`;
+  lc=1; gs(1);
+}
+
+// ─── PAGES ───────────────────────────────────────────────
+const TITLES={dashboard:['Dashboard','Overview of all pre-study projects'],projects:['Projects','All saved project studies'],study:['New Study','AI-assisted pre-study workflow'],cashflow:['Cashflow Projection','Detailed cashflow by layout'],tracker:['Acquisition Tracker','Breakeven & best price reference table'],settings:['API Key','Configure AI features']};
+function sp(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tt').textContent=TITLES[id][0];
+  document.getElementById('ts').textContent=TITLES[id][1];
+  if(id==='dashboard')rdash();
+  if(id==='projects')rprojs();
+  if(id==='tracker')rtracker();
+  if(id==='cashflow')rcfsel();
+  if(id==='settings'){const k=getKey();if(k){document.getElementById('set-key').value=k;document.getElementById('key-msg').innerHTML='<span style="color:var(--accent);">✓ Key loaded.</span>';}}
+}
+
+function gs(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('ss'+i).style.display=i===n?'':'none';
+    const el=document.getElementById('stp'+i);
+    el.classList.remove('active','done');
+    if(i===n)el.classList.add('active');
+    if(i<n)el.classList.add('done');
+  });
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────
+function rdash(){
+  document.getElementById('d-total').textContent=P.length;
+  document.getElementById('d-pos').textContent=P.filter(p=>p.verdict==='Possible').length;
+  document.getElementById('d-lp').textContent=P.filter(p=>p.verdict==='Less Possible').length;
+  document.getElementById('d-nv').textContent=P.filter(p=>p.verdict==='Not Viable').length;
+  const el=document.getElementById('d-recent');
+  if(!P.length){el.innerHTML=`<div class="empty"><div style="margin-bottom:12px;">No projects yet.</div><button class="btn btn-primary btn-sm" onclick="sp('study')">+ Start First Study</button></div>`;return;}
+  el.innerHTML=P.slice(-3).reverse().map((p,i)=>pcardHTML(p,P.length-1-i)).join('');
+}
+
+function rprojs(){
+  const el=document.getElementById('proj-list');
+  if(!P.length){el.innerHTML=`<div class="card"><div class="empty">No projects yet.<br><button class="btn btn-primary btn-sm" onclick="sp('study')" style="margin-top:12px;">+ New Study</button></div></div>`;return;}
+  el.innerHTML=P.map((p,i)=>pcardHTML(p,i)).join('');
+}
+
+function pcardHTML(p,idx){
+  const vc=p.verdict==='Possible'?'b-green':p.verdict==='Less Possible'?'b-amber':'b-red';
+  return `<div class="pcard" onclick="openDetail(${idx})">
+    <div class="pcard-top"><div><div class="pcard-name">${p.proj||'Unnamed'} <span style="color:var(--muted);font-weight:400;font-size:12px;">[${p.code||'—'}]</span></div><div class="pcard-dev">${p.dev||'—'} · ${p.state||'—'}</div></div><span class="badge ${vc}">${p.verdict}</span></div>
+    <div class="pmeta"><span class="chip">BE: ${p.beL||'—'}</span><span class="chip">BTE: ${p.bteL||'—'}</span><span class="chip">${p.units||'—'} units</span><span class="chip">YC ${p.year||'—'}</span>${p.date?`<span class="chip">${p.date}</span>`:''}</div>
+  </div>`;
+}
+
+function openDetail(idx){
+  viewIdx=idx; const p=P[idx];
+  const vc=p.verdict==='Possible'?'b-green':p.verdict==='Less Possible'?'b-amber':'b-red';
+  document.getElementById('md-name').textContent=p.proj||'Project';
+  document.getElementById('md-dev').textContent=(p.dev||'')+'  ·  '+(p.state||'');
+  document.getElementById('md-body').innerHTML=`
+    <div class="ir"><span class="il">Code</span><span class="iv">${p.code}</span></div>
+    <div class="ir"><span class="il">Units / Year</span><span class="iv">${p.units} / ${p.year}</span></div>
+    <div class="ir"><span class="il">Median PSF</span><span class="iv">RM${p.mpsf}</span></div>
+    <div class="ir"><span class="il">Asking PSF</span><span class="iv">RM${p.apsf}</span></div>
+    <div class="ir"><span class="il">Price to BE</span><span class="iv g">${p.beL}</span></div>
+    <div class="ir"><span class="il">Best to Enter (BTE)</span><span class="iv g">${p.bteL}</span></div>
+    <div class="ir"><span class="il">Transit</span><span class="iv">${p.transit||'—'}</span></div>
+    <div class="ir"><span class="il">Employment Hub</span><span class="iv">${p.hub||'—'}</span></div>
+    <div class="ir"><span class="il">Area Demand</span><span class="iv">${p.demand||'—'}</span></div>
+    <div class="ir"><span class="il">Rental Options</span><span class="iv">${p.rentalOpts||'—'}</span></div>
+    <div class="ir"><span class="il">Verdict</span><span class="iv"><span class="badge ${vc}">${p.verdict}</span></span></div>
+    ${p.exp?`<div style="margin-top:10px;padding:10px;background:#F8FAFC;border-radius:6px;font-size:12px;color:var(--muted);">${p.exp}</div>`:''}`;
+  document.getElementById('mod-detail').classList.add('open');
+}
+function closeMD(){document.getElementById('mod-detail').classList.remove('open');}
+function closeMS(){document.getElementById('mod-saved').classList.remove('open');}
+function loadFromDetail(){closeMD();sp('cashflow');loadCFFor(viewIdx);}
+
+// ─── TRACKER ─────────────────────────────────────────────
+function rtracker(){
+  const tb=document.getElementById('tracker-body');
+  if(!P.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted);">No projects yet.</td></tr>`;return;}
+  const vc=v=>v==='Possible'?'b-green':v==='Less Possible'?'b-amber':'b-red';
+  tb.innerHTML=P.map((p,i)=>`<tr><td>${i+1}</td><td><strong>${p.code}</strong></td><td>${p.state}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.dev}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.proj}</td><td>${p.beL}</td><td>${p.bteL}</td><td><span class="badge ${vc(p.verdict)}">${p.verdict}</span></td><td style="max-width:180px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.exp||'—'}</td><td><button class="btn btn-sm" onclick="openDetail(${i})">View</button></td></tr>`).join('');
+}
+
+// ─── CASHFLOW ────────────────────────────────────────────
+function rcfsel(){
+  const sel=document.getElementById('cf-sel');
+  sel.innerHTML='<option value="">— Select a saved project —</option>';
+  P.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`[${p.code}] ${p.proj}`;sel.appendChild(o);});
+}
+function loadCF(){const idx=parseInt(document.getElementById('cf-sel').value);if(isNaN(idx))return;loadCFFor(idx);}
+function loadCFFor(idx){
+  document.getElementById('cf-sel').value=idx;
+  const p=P[idx];
+  if(!p||!p.layouts||!p.layouts.length){document.getElementById('cf-out').innerHTML='<div class="card" style="text-align:center;color:var(--muted);">No layout data.</div>';return;}
+  const rate=p.rate||3.80,tenure=p.tenure||35,maint=p.maint||0.30,sink=p.sink||0.05;
+  let html=`<div class="card"><div class="card-title">Quick Cashflow — ${p.proj}</div>
+    <div class="g4" style="margin-bottom:0;">
+      <div class="metric"><div class="metric-label">Units</div><div class="metric-val">${p.units||'—'}</div></div>
+      <div class="metric"><div class="metric-label">Median PSF</div><div class="metric-val">RM${p.mpsf||'—'}</div></div>
+      <div class="metric"><div class="metric-label">Asking PSF</div><div class="metric-val">RM${p.apsf||'—'}</div></div>
+      <div class="metric"><div class="metric-label">Rental Options</div><div class="metric-val" style="font-size:13px;">${p.rentalOpts||'—'}</div></div>
+    </div></div>`;
+  p.layouts.forEach((l,i)=>{
+    const sBE=p.iBE[i]||0,sBTE=sBE*0.85;
+    const instBE=Math.round(instalment(sBE,rate,tenure)),instBTE=Math.round(instalment(sBTE,rate,tenure));
+    const mt=Math.round(l.sz*(maint+sink)),ra=Math.round((l.rl+l.rh)/2);
+    const cfBE=ra-(instBE+mt),cfBTE=ra-(instBTE+mt);
+    const intBE=Math.round(sBE*rate/100/12),intBTE=Math.round(sBTE*rate/100/12);
+    html+=`<div class="card"><div class="card-title">${l.t} — ${l.br} · ${l.sz} sqft</div>
+      <div class="g2">
+        <div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">At Net BE</div>
+          <div class="ir"><span class="il">Net PSF</span><span class="iv">${p.pBE[i]}</span></div>
+          <div class="ir"><span class="il">Net Price</span><span class="iv">RM${Math.round(sBE).toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Monthly Instalment</span><span class="iv">RM${instBE.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Maint + Sinking</span><span class="iv">RM${mt.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Total Commitment</span><span class="iv">RM${(instBE+mt).toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Rental Mid</span><span class="iv">RM${ra.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Net Cashflow</span><span class="iv ${cfBE>=0?'g':'r'}">${cfBE>=0?'+':''}RM${cfBE}</span></div>
+          <div class="ir"><span class="il">CF excl. Principal</span><span class="iv ${(ra-mt-intBE)>=0?'g':'r'}">${ra-mt-intBE>=0?'+':''}RM${ra-mt-intBE}</span></div>
+        </div>
+        <div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">At Net BTE</div>
+          <div class="ir"><span class="il">Net PSF</span><span class="iv">${p.pBTE[i]}</span></div>
+          <div class="ir"><span class="il">Net Price</span><span class="iv">RM${Math.round(sBTE).toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Monthly Instalment</span><span class="iv">RM${instBTE.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Maint + Sinking</span><span class="iv">RM${mt.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Total Commitment</span><span class="iv">RM${(instBTE+mt).toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Rental Mid</span><span class="iv">RM${ra.toLocaleString()}</span></div>
+          <div class="ir"><span class="il">Net Cashflow</span><span class="iv ${cfBTE>=0?'g':'r'}">${cfBTE>=0?'+':''}RM${cfBTE}</span></div>
+          <div class="ir"><span class="il">CF excl. Principal</span><span class="iv ${(ra-mt-intBTE)>=0?'g':'r'}">${ra-mt-intBTE>=0?'+':''}RM${ra-mt-intBTE}</span></div>
+        </div>
+      </div>
+      <div style="background:#F8FAFC;padding:8px 12px;border-radius:6px;font-size:12px;color:var(--muted);margin-top:10px;">Rental ref: RM${l.rl.toLocaleString()} – RM${l.rh.toLocaleString()} / mo</div>
+    </div>`;
+  });
+  document.getElementById('cf-out').innerHTML=html;
+}
+
+// ─── EXPORT ──────────────────────────────────────────────
+function exportCSV(){
+  if(!P.length){alert('No projects to export.');return;}
+  const h=['No','Code','State','Developer','Project','Units','Year','Median PSF','Asking PSF','Price to BE','Best to Enter','Verdict','Explanation'];
+  const rows=P.map((p,i)=>[i+1,p.code,p.state,`"${p.dev}"`,`"${p.proj}"`,p.units,p.year,p.mpsf,p.apsf,p.beL,p.bteL,p.verdict,`"${(p.exp||'').replace(/"/g,"'")}"`]);
+  const csv=[h,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='quick_pre_study.csv';a.click();
+}
+
+// ─── HELPERS ─────────────────────────────────────────────
+function v(id){return document.getElementById(id)?.value||'';}
+function si(id,val){const e=document.getElementById(id);if(e)e.value=val;}
+function pf(id){return parseFloat(document.getElementById(id)?.value)||0;}
+function pf2(el){return parseFloat(el?.value)||0;}
+
+rdash();
+</script>
+</body>
+</html>
