@@ -15,7 +15,6 @@
   --radius:10px;--radius-sm:6px;
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);display:flex;min-height:100vh;}
-/* ---- SIDEBAR ---- */
 #sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:20;}
 .logo{padding:20px 16px 14px;border-bottom:1px solid var(--border);}
 .logo .brand{font-size:15px;font-weight:600;color:var(--accent);}
@@ -27,12 +26,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .nav-btn.active{background:var(--accent-light);color:var(--accent-dark);font-weight:500;}
 .nav-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;}
 .sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
-/* ---- MAIN ---- */
 #main{flex:1;margin-left:220px;display:flex;flex-direction:column;min-width:0;}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
 .topbar-title{font-size:15px;font-weight:600;}
 .topbar-sub{font-size:12px;color:var(--muted);margin-top:1px;}
-/* ---- BUTTONS ---- */
 .btn{padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s;}
 .btn:hover{background:#F1F5F9;}
 .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
@@ -41,64 +38,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .btn-ai:hover{background:var(--purple-dark);border-color:var(--purple-dark);}
 .btn-danger{color:var(--danger);border-color:#FECACA;}
 .btn-sm{padding:5px 10px;font-size:12px;}
-/* ---- PAGES ---- */
 .page{display:none;padding:24px;}
 .page.active{display:block;}
-/* ---- CARDS ---- */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
 .card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;}
-/* ---- GRID ---- */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-/* ---- FORMS ---- */
 label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
 input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:#fff;color:var(--text);transition:border .15s;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
 textarea{resize:vertical;min-height:64px;}
 .row{display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;}
 .row>*{flex:1;}
-/* ---- METRICS ---- */
 .metric{background:#F8FAFC;border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border);}
 .metric-label{font-size:11px;color:var(--muted);margin-bottom:4px;}
 .metric-val{font-size:22px;font-weight:600;}
 .green{color:var(--accent);}
 .amber{color:var(--warn);}
 .red{color:var(--danger);}
-/* ---- BADGES ---- */
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
 .b-green{background:var(--accent-light);color:var(--accent-dark);}
 .b-amber{background:var(--warn-light);color:var(--warn);}
 .b-red{background:var(--danger-light);color:var(--danger);}
 .b-purple{background:var(--purple-light);color:var(--purple-dark);}
-/* ---- TABLE ---- */
 .dtable{width:100%;border-collapse:collapse;font-size:13px;}
 .dtable th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border);}
 .dtable td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .dtable tr:hover td{background:#F8FAFC;}
 .dtable tr:last-child td{border-bottom:none;}
-/* ---- STEPS ---- */
 .steps{display:flex;margin-bottom:24px;}
 .step{flex:1;text-align:center;padding-bottom:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--muted);}
 .step.active{border-color:var(--accent);color:var(--accent);font-weight:500;}
 .step.done{border-color:var(--accent);color:var(--muted);}
-/* ---- RESULT HIGHLIGHT ---- */
 .rh{border-left:3px solid var(--accent);padding:12px 16px;background:var(--accent-light);border-radius:0 var(--radius-sm) var(--radius-sm) 0;margin-bottom:10px;}
 .rh .rl{font-size:11px;color:var(--accent-dark);font-weight:500;margin-bottom:3px;}
 .rh .rv{font-size:18px;font-weight:600;color:var(--accent-dark);}
 .rh.am{border-color:var(--warn);background:var(--warn-light);}
 .rh.am .rl,.rh.am .rv{color:var(--warn);}
-/* ---- LAYOUT ROW ---- */
 .lrow{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;background:#fff;}
 .lrow-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-/* ---- CF GRID ---- */
 .cfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
 .cfc{background:#F8FAFC;padding:8px 10px;border-radius:5px;border:1px solid var(--border);}
 .cfc .cl{font-size:10px;color:var(--muted);margin-bottom:2px;}
 .cfc .cv{font-size:13px;font-weight:500;}
 .cfc .cv.pos{color:var(--accent);}
 .cfc .cv.neg{color:var(--danger);}
-/* ---- AI BOX ---- */
 .aibox{border:1px solid #AFA9EC;border-radius:var(--radius-sm);padding:13px 15px;background:var(--purple-light);margin-bottom:14px;}
 .aibox-hd{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:12px;font-weight:500;color:var(--purple-dark);}
 .aibox-body{font-size:13px;color:#26215C;line-height:1.6;}
@@ -109,9 +94,7 @@ textarea{resize:vertical;min-height:64px;}
 @keyframes dp{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
 .aibox.err{border-color:#F09595;background:var(--danger-light);}
 .aibox.err .aibox-body{color:var(--danger);}
-/* ---- AI-FILLED INPUTS ---- */
 .ai-filled{border-color:#AFA9EC !important;background:#EEEDFE22 !important;}
-/* ---- PROJ CARD ---- */
 .pcard{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;cursor:pointer;transition:border .15s;}
 .pcard:hover{border-color:var(--accent);}
 .pcard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
@@ -119,32 +102,32 @@ textarea{resize:vertical;min-height:64px;}
 .pcard-dev{font-size:12px;color:var(--muted);margin-top:2px;}
 .pmeta{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
 .chip{font-size:11px;background:#F1F5F9;padding:3px 8px;border-radius:4px;color:var(--muted);}
-/* ---- MODAL ---- */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;align-items:center;justify-content:center;}
 .overlay.open{display:flex;}
 .modal{background:#fff;border-radius:var(--radius);border:1px solid var(--border);width:520px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.15);}
 .modal-title{font-size:15px;font-weight:600;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
-/* ---- INFO ROW ---- */
 .ir{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
 .ir:last-child{border-bottom:none;}
 .ir .il{color:var(--muted);}
 .ir .iv{font-weight:500;}
 .ir .iv.g{color:var(--accent);}
 .ir .iv.r{color:var(--danger);}
-/* ---- EMPTY ---- */
 .empty{text-align:center;padding:48px 24px;color:var(--muted);}
-/* ---- WARN BANNER ---- */
 .warn-banner{background:var(--warn-light);border:1px solid #EF9F27;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--warn);}
 .warn-banner button{margin-left:auto;}
-/* ---- API KEY PAGE ---- */
 .keycard{background:#F8FAFC;border:1px dashed var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;}
+
+/* ---- TELEGRAM PREFILL BANNER ---- */
+.tg-banner{background:linear-gradient(135deg,#E1F5EE,#EEEDFE);border:1px solid #AFA9EC;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;}
+.tg-banner-icon{font-size:28px;flex-shrink:0;}
+.tg-banner-text .tg-title{font-size:14px;font-weight:600;color:var(--purple-dark);margin-bottom:3px;}
+.tg-banner-text .tg-sub{font-size:12px;color:var(--muted);}
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
 <div id="sidebar">
   <div class="logo">
     <div class="brand">Quick Pre Study</div>
@@ -174,7 +157,6 @@ textarea{resize:vertical;min-height:64px;}
   </div>
 </div>
 
-<!-- MAIN -->
 <div id="main">
   <div class="topbar">
     <div>
@@ -236,6 +218,7 @@ textarea{resize:vertical;min-height:64px;}
 
     <!-- STEP 1 -->
     <div id="ss1">
+      <!-- Telegram prefill banner — shown only when arriving from bot -->
       <div id="w1"></div>
       <div class="card">
         <div class="card-title">Project Information</div>
@@ -383,7 +366,7 @@ textarea{resize:vertical;min-height:64px;}
       </div>
     </div>
   </div>
-</div><!-- /main -->
+</div>
 
 <!-- MODAL: Saved -->
 <div class="overlay" id="mod-saved">
@@ -414,22 +397,19 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <script>
-// ─── STATE ───────────────────────────────────────────────
 let P = [];
 try { P = JSON.parse(localStorage.getItem('qps_v2') || '[]'); } catch(e) { P = []; }
 let CS = {}, viewIdx = -1, lc = 1;
 
-// ─── API KEY ─────────────────────────────────────────────
 function getKey() { return localStorage.getItem('qps_key') || ''; }
 function saveKey() {
   const k = document.getElementById('set-key').value.trim();
   if (!k) return;
   localStorage.setItem('qps_key', k);
-  document.getElementById('key-msg').innerHTML = '<span style="color:var(--accent);">✓ Key saved permanently — you will not be asked again.</span>';
+  document.getElementById('key-msg').innerHTML = '<span style="color:var(--accent);">✓ Key saved permanently.</span>';
   updateKeyStatus();
 }
 
-// ─── API CALL — Anthropic Claude ─────────────────────────
 async function claude(prompt) {
   const key = getKey();
   const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -455,20 +435,16 @@ function noKey(id) {
   document.getElementById(id).innerHTML = `<div class="warn-banner">No Anthropic API key set. <button class="btn btn-sm" onclick="sp('settings')">Set API Key →</button></div>`;
   return true;
 }
-
 function thinking(id, msg) {
   document.getElementById(id).innerHTML = `<div class="aibox"><div class="ai-thinking"><div class="dots"><span></span><span></span><span></span></div> ${msg}</div></div>`;
 }
-
 function aiShow(id, html) {
   document.getElementById(id).innerHTML = `<div class="aibox"><div class="aibox-hd">✦ AI Insight</div><div class="aibox-body">${html}</div></div>`;
 }
-
 function aiErr(id, msg) {
   document.getElementById(id).innerHTML = `<div class="aibox err"><div class="aibox-body">${msg}</div></div>`;
 }
 
-// ─── AI: PSF ─────────────────────────────────────────────
 async function aiPSF() {
   if (!getKey()) { noKey('ai-psf'); return; }
   const proj = v('s-proj'), dev = v('s-dev'), state = v('s-state'), yr = v('s-year');
@@ -486,10 +462,9 @@ Reply ONLY in JSON, no extra text:
     si('s-mpsf', d.median_psf); si('s-apsf', d.asking_psf);
     ['s-mpsf','s-apsf'].forEach(id => document.getElementById(id).classList.add('ai-filled'));
     aiShow('ai-psf', `<strong>Median PSF: RM${d.median_psf}</strong> &nbsp;|&nbsp; <strong>Asking PSF: RM${d.asking_psf}</strong><br><span style="font-size:12px;display:block;margin-top:4px;">${d.reason}</span><span style="font-size:11px;color:var(--purple-dark);display:block;margin-top:3px;">Rental hint: ${d.rental_hint}</span>`);
-  } catch(e) { aiErr('ai-psf', 'Error: ' + e.message + '. Check your Anthropic API key in Settings.'); }
+  } catch(e) { aiErr('ai-psf', 'Error: ' + e.message); }
 }
 
-// ─── AI: AREA ────────────────────────────────────────────
 async function aiArea() {
   if (!getKey()) { noKey('ai-area'); return; }
   const proj = v('s-proj'), state = v('s-state'), dev = v('s-dev');
@@ -511,7 +486,6 @@ Reply ONLY in JSON, no extra text:
   } catch(e) { aiErr('ai-area', 'Error: ' + e.message); }
 }
 
-// ─── AI: LAYOUTS ─────────────────────────────────────────
 async function aiLayouts() {
   if (!getKey()) { noKey('ai-lyt'); return; }
   const proj = v('s-proj'), state = v('s-state'), mpsf = v('s-mpsf'), apsf = v('s-apsf');
@@ -548,11 +522,10 @@ br must be one of: Studio,1br,2br,3br,3+1br,4br. SPA in RM full number. Rental i
         </div>`;
       document.getElementById('lyt-builder').appendChild(div);
     });
-    aiShow('ai-lyt', `${d.layouts.length} layouts suggested. Purple-highlighted values are AI estimates — verify against developer's sales kit and current rental listings on iProperty / PropertyGuru.`);
+    aiShow('ai-lyt', `${d.layouts.length} layouts suggested. Purple-highlighted values are AI estimates — verify against developer's sales kit.`);
   } catch(e) { aiErr('ai-lyt', 'Error: ' + e.message); }
 }
 
-// ─── LAYOUT HELPERS ──────────────────────────────────────
 function rmLyt(id) { const el = document.getElementById(id); if(el) el.remove(); }
 function addLyt() {
   lc++;
@@ -573,7 +546,6 @@ function addLyt() {
   document.getElementById('lyt-builder').appendChild(div);
 }
 
-// ─── CALCULATE ───────────────────────────────────────────
 function instalment(p, ra, ty) {
   const r = ra/100/12, n = ty*12;
   return r === 0 ? p/n : p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
@@ -590,20 +562,16 @@ function runCalc() {
     if(sz&&spa) layouts.push({t,br,sz,spa,rl,rh});
   });
   if(!layouts.length){alert('Fill in at least one layout.');return;}
-
   const mt=layouts.map(l=>l.sz*(maint+sink));
   const rm=layouts.map(l=>(l.rl+l.rh)/2);
   const iBE=layouts.map((l,i)=>{const r=rate/100/12,n=tenure*12,net=rm[i]-mt[i];return net/r*(1-1/Math.pow(1+r,n));});
   const pBE=layouts.map((l,i)=>Math.round(iBE[i]/l.sz));
   const pBTE=pBE.map(p=>Math.round(p*0.85));
   const beMin=Math.min(...pBE),beMax=Math.max(...pBE),bteMin=Math.min(...pBTE),bteMax=Math.max(...pBTE);
-
   CS={layouts,pBE,pBTE,iBE,tenure,rate,maint,sink,beMin,beMax,bteMin,bteMax};
-
   const mpsf=pf('s-mpsf')||0, apsf=pf('s-apsf')||0;
   const beL=beMin===beMax?beMin+'psf':beMin+'-'+beMax+'psf';
   const bteL=bteMin===bteMax?bteMin+'psf':bteMin+'-'+bteMax+'psf';
-
   let html=`<div class="card"><div class="card-title">Calculation Results</div>
     <div class="g2" style="margin-bottom:14px;">
       <div class="rh"><div class="rl">Price to Breakeven (BE)</div><div class="rv">${beL}</div></div>
@@ -614,7 +582,6 @@ function runCalc() {
     <div class="ir"><span class="il">BE vs Median</span><span class="iv ${beMax<=mpsf?'g':'r'}">${beMax<=mpsf?'BE below median — good ✓':'BE above median — tight margin'}</span></div>
     <div class="ir"><span class="il">BTE vs Asking</span><span class="iv ${bteMax<=apsf?'g':'r'}">${bteMax<=apsf?'BTE below asking — good entry ✓':'Negotiation needed with developer'}</span></div>
   </div>`;
-
   html+=`<div class="card"><div class="card-title">Per Layout Summary</div>`;
   layouts.forEach((l,i)=>{
     const inst=Math.round(instalment(iBE[i],rate,tenure));
@@ -637,7 +604,6 @@ function runCalc() {
   gs(4);
 }
 
-// ─── SAVE ────────────────────────────────────────────────
 function savePrj() {
   const opts=[];
   if(document.getElementById('ro-w').checked)opts.push('Whole Unit');
@@ -661,12 +627,11 @@ function savePrj() {
 
 function resetForm() {
   ['s-code','s-dev','s-proj','s-units','s-year','s-mpsf','s-apsf','s-transit','s-hub','s-comp','s-school','s-mall','s-anotes','s-exp'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  ['ai-psf','ai-area','ai-lyt'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['ai-psf','ai-area','ai-lyt','w1'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   document.getElementById('lyt-builder').innerHTML=`<div class="lrow" id="lyt-0"><div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout 1</span><button class="btn btn-danger btn-sm" onclick="rmLyt('lyt-0')">Remove</button></div><div class="row"><div><label>Type Label</label><input class="lt" placeholder="Type B"></div><div><label>Bedroom</label><select class="lb"><option>Studio</option><option>1br</option><option selected>2br</option><option>3br</option><option>3+1br</option><option>4br</option></select></div><div><label>Size (sqft)</label><input class="ls" type="number" placeholder="604"></div></div><div class="row"><div><label>SPA Price (RM)</label><input class="lp" type="number" placeholder="522278"></div><div><label>Rental Low (RM/mo)</label><input class="lrl" type="number" placeholder="1800"></div><div><label>Rental High (RM/mo)</label><input class="lrh" type="number" placeholder="2200"></div></div></div>`;
   lc=1; gs(1);
 }
 
-// ─── PAGES ───────────────────────────────────────────────
 const TITLES={dashboard:['Dashboard','Overview of all pre-study projects'],projects:['Projects','All saved project studies'],study:['New Study','AI-assisted pre-study workflow'],cashflow:['Cashflow Projection','Detailed cashflow by layout'],tracker:['Acquisition Tracker','Breakeven & best price reference table'],settings:['API Key','Configure AI features']};
 function sp(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -691,7 +656,6 @@ function gs(n){
   });
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────
 function rdash(){
   document.getElementById('d-total').textContent=P.length;
   document.getElementById('d-pos').textContent=P.filter(p=>p.verdict==='Possible').length;
@@ -740,7 +704,6 @@ function closeMD(){document.getElementById('mod-detail').classList.remove('open'
 function closeMS(){document.getElementById('mod-saved').classList.remove('open');}
 function loadFromDetail(){closeMD();sp('cashflow');loadCFFor(viewIdx);}
 
-// ─── TRACKER ─────────────────────────────────────────────
 function rtracker(){
   const tb=document.getElementById('tracker-body');
   if(!P.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted);">No projects yet.</td></tr>`;return;}
@@ -748,7 +711,6 @@ function rtracker(){
   tb.innerHTML=P.map((p,i)=>`<tr><td>${i+1}</td><td><strong>${p.code}</strong></td><td>${p.state}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.dev}</td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.proj}</td><td>${p.beL}</td><td>${p.bteL}</td><td><span class="badge ${vc(p.verdict)}">${p.verdict}</span></td><td style="max-width:180px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.exp||'—'}</td><td><button class="btn btn-sm" onclick="openDetail(${i})">View</button></td></tr>`).join('');
 }
 
-// ─── CASHFLOW ────────────────────────────────────────────
 function rcfsel(){
   const sel=document.getElementById('cf-sel');
   sel.innerHTML='<option value="">— Select a saved project —</option>';
@@ -802,7 +764,6 @@ function loadCFFor(idx){
   document.getElementById('cf-out').innerHTML=html;
 }
 
-// ─── EXPORT ──────────────────────────────────────────────
 function exportCSV(){
   if(!P.length){alert('No projects to export.');return;}
   const h=['No','Code','State','Developer','Project','Units','Year','Median PSF','Asking PSF','Price to BE','Best to Enter','Verdict','Explanation'];
@@ -811,7 +772,6 @@ function exportCSV(){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='quick_pre_study.csv';a.click();
 }
 
-// ─── HELPERS ─────────────────────────────────────────────
 function v(id){return document.getElementById(id)?.value||'';}
 function si(id,val){const e=document.getElementById(id);if(e)e.value=val;}
 function pf(id){return parseFloat(document.getElementById(id)?.value)||0;}
@@ -819,7 +779,6 @@ function pf2(el){return parseFloat(el?.value)||0;}
 
 rdash();
 
-// ─── KEY STATUS INDICATOR ────────────────────────────────
 function updateKeyStatus() {
   const k = getKey();
   const dot = document.getElementById('key-status-dot');
@@ -831,7 +790,6 @@ function updateKeyStatus() {
   }
 }
 
-// ─── FIRST-TIME MODAL ────────────────────────────────────
 function saveKeyModal() {
   const k = document.getElementById('mo-key-input').value.trim();
   if (!k || !k.startsWith('sk-ant')) {
@@ -839,7 +797,6 @@ function saveKeyModal() {
     return;
   }
   localStorage.setItem('qps_key', k);
-  // Also sync to settings page input if visible
   const settingsInput = document.getElementById('set-key');
   if (settingsInput) settingsInput.value = k;
   document.getElementById('mo-firstkey').style.display = 'none';
@@ -847,21 +804,70 @@ function saveKeyModal() {
 }
 
 function skipKeyModal() {
-  // Mark as seen so it doesn't show again this session
   sessionStorage.setItem('key_modal_skipped', '1');
   document.getElementById('mo-firstkey').style.display = 'none';
 }
 
-// ─── INIT ────────────────────────────────────────────────
+// ─── TELEGRAM URL PREFILL ─────────────────────────────────
+// Reads ?proj=&dev=&units=&year=&state= from URL
+// Auto-fills Step 1 and navigates to New Study
+(function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const proj  = params.get('proj');
+  const dev   = params.get('dev');
+  const units = params.get('units');
+  const year  = params.get('year');
+  const state = params.get('state');
+
+  // Only activate if at least project name is present
+  if (!proj) return;
+
+  // Navigate to New Study page
+  sp('study');
+  gs(1);
+
+  // Fill fields
+  if (proj)  si('s-proj', proj);
+  if (dev)   si('s-dev', dev);
+  if (units) si('s-units', units);
+  if (year)  si('s-year', year);
+  if (state) {
+    const sel = document.getElementById('s-state');
+    if (sel) {
+      const opt = Array.from(sel.options).find(o => o.value === state);
+      if (opt) sel.value = state;
+    }
+  }
+
+  // Auto-generate a project code from first letters of project name
+  const code = proj.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5);
+  si('s-code', code);
+
+  // Show a banner so you know it was pre-filled from Telegram
+  const banner = document.getElementById('w1');
+  if (banner) {
+    banner.innerHTML = `
+      <div class="tg-banner">
+        <div class="tg-banner-icon">📲</div>
+        <div class="tg-banner-text">
+          <div class="tg-title">Pre-filled from Telegram Bot</div>
+          <div class="tg-sub">${proj} — review the fields below and click Next when ready.</div>
+        </div>
+      </div>`;
+  }
+
+  // Clean the URL so refreshing doesn't re-trigger
+  window.history.replaceState({}, '', window.location.pathname);
+})();
+
 (function init() {
   updateKeyStatus();
-  // Show first-time modal only if no key saved AND not skipped this session
   const hasKey = !!getKey();
   const skipped = sessionStorage.getItem('key_modal_skipped');
   if (!hasKey && !skipped) {
     setTimeout(() => {
       document.getElementById('mo-firstkey').style.display = 'flex';
-    }, 600); // slight delay so app loads first
+    }, 600);
   }
 })();
 </script>
