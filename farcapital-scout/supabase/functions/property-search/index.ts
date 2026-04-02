@@ -25,7 +25,7 @@ interface RawListing {
   price: number | null;
   sqft: number | null;
   psf: number | null;
-  source: "mudah.my" | "iproperty.com.my" | "other";
+  source: "mudah.my" | "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "other";
 }
 
 interface ProjectFinancials {
@@ -135,8 +135,8 @@ function buildSearchQuery(intent: ParsedIntent): string {
 
   if (intent.tenure !== "all") parts.push(intent.tenure);
 
-  // Target the two major Malaysian property portals
-  parts.push("site:mudah.my OR site:iproperty.com.my");
+  // Target major Malaysian property portals + transaction data
+  parts.push("site:mudah.my OR site:iproperty.com.my OR site:propertyguru.com.my OR site:brickz.my OR site:edgeprop.my");
 
   return parts.join(" ");
 }
@@ -192,9 +192,12 @@ function parseSqft(text: string): number | null {
   return parseFloat(m[1].replace(/,/g, ""));
 }
 
-function detectSource(link: string): "mudah.my" | "iproperty.com.my" | "other" {
+function detectSource(link: string): "mudah.my" | "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "other" {
   if (link.includes("mudah.my")) return "mudah.my";
   if (link.includes("iproperty")) return "iproperty.com.my";
+  if (link.includes("propertyguru")) return "propertyguru.com.my";
+  if (link.includes("brickz")) return "brickz.my";
+  if (link.includes("edgeprop")) return "edgeprop.my";
   return "other";
 }
 
