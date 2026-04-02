@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2, ExternalLink, StickyNote } from "lucide-react";
+import { Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
