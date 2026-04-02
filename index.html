@@ -95,6 +95,13 @@ textarea{resize:vertical;min-height:64px;}
 .aibox.err{border-color:#F09595;background:var(--danger-light);}
 .aibox.err .aibox-body{color:var(--danger);}
 .ai-filled{border-color:#AFA9EC !important;background:#EEEDFE22 !important;}
+.scout-filled{border-color:#1D9E75 !important;background:#E1F5EE44 !important;}
+.scout-box{border:1px solid #22C5A0;border-radius:var(--radius-sm);padding:13px 15px;background:#E8FAF5;margin-bottom:14px;}
+.scout-box-hd{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;font-weight:600;color:#085041;}
+.scout-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
+.scout-metric{background:#fff;border:1px solid #9DE8D3;border-radius:5px;padding:8px 10px;}
+.scout-metric .sl{font-size:10px;color:var(--muted);margin-bottom:2px;}
+.scout-metric .sv{font-size:13px;font-weight:600;color:#085041;}
 .pcard{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;cursor:pointer;transition:border .15s;}
 .pcard:hover{border-color:var(--accent);}
 .pcard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
@@ -153,7 +160,10 @@ textarea{resize:vertical;min-height:64px;}
   </div>
   <div class="sidebar-footer" style="display:flex;align-items:center;justify-content:space-between;">
     <span>v3.0 — AI Edition</span>
-    <span id="key-status-dot" title="AI key status" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;"></span>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+      <span id="key-status-dot" title="Anthropic AI key status" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;"></span>
+      <span id="scout-status-dot" title="FarCapital Scout connectivity" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;"></span>
+    </div>
   </div>
 </div>
 
@@ -205,6 +215,28 @@ textarea{resize:vertical;min-height:64px;}
         4. You get <strong>$5 free credit</strong> on signup — enough for ~500 AI calls
       </div>
     </div>
+    <div class="card">
+      <div class="card-title">FarCapital Scout — Supabase Config</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Connect to the Scout app's Supabase project to enable the <strong>↓ Scout Listings</strong> button. This pulls real listing data (PSF, yield, BE) directly from mudah.my &amp; iproperty into the wizard.
+      </p>
+      <div class="keycard">
+        <div class="row">
+          <div><label>Supabase Project URL</label><input type="url" id="sb-url" placeholder="https://xxxx.supabase.co"></div>
+        </div>
+        <div class="row" style="margin-bottom:0;">
+          <div><label>Supabase Anon Key</label><input type="password" id="sb-anon" placeholder="eyJhbGci..."></div>
+          <div style="flex:0;"><button class="btn btn-primary" onclick="saveScoutConf()" style="margin-top:20px;">Save</button></div>
+        </div>
+        <div id="sb-msg" style="margin-top:8px;font-size:12px;"></div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+        <strong>Where to find these:</strong><br>
+        1. Open your Supabase project → <strong>Settings → API</strong><br>
+        2. Copy <strong>Project URL</strong> and <strong>anon / public</strong> key<br>
+        3. Also set <code>ANTHROPIC_API_KEY</code> and <code>SERPAPI_KEY</code> as Edge Function secrets
+      </div>
+    </div>
   </div>
 
   <!-- NEW STUDY -->
@@ -235,8 +267,12 @@ textarea{resize:vertical;min-height:64px;}
         <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span style="font-size:12px;font-weight:500;color:var(--muted);">PSF REFERENCE</span>
-          <button class="btn btn-ai btn-sm" onclick="aiPSF()">✦ AI Suggest PSF</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ai btn-sm" onclick="aiPSF()">✦ AI Suggest PSF</button>
+            <button class="btn btn-sm" id="btn-scout" onclick="scoutSearch()" style="background:var(--accent);color:#fff;border-color:var(--accent);" title="Pull real listing data from mudah.my + iproperty via Scout">↓ Scout Listings</button>
+          </div>
         </div>
+        <div id="ai-scout"></div>
         <div id="ai-psf"></div>
         <div class="row">
           <div><label>Transaction Median PSF (RM)</label><input id="s-mpsf" type="number" placeholder="556"></div>
@@ -286,7 +322,10 @@ textarea{resize:vertical;min-height:64px;}
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
           <div class="card-title" style="margin-bottom:0;">Layout Configuration</div>
-          <button class="btn btn-ai btn-sm" onclick="aiLayouts()">✦ AI Suggest Layouts</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm" id="scout-fill-lyt" style="display:none;background:var(--accent-light);color:var(--accent-dark);border-color:var(--accent);" onclick="scoutFillLayouts()" title="Fill first layout size + rental range from Scout search data">↑ Fill from Scout</button>
+            <button class="btn btn-ai btn-sm" onclick="aiLayouts()">✦ AI Suggest Layouts</button>
+          </div>
         </div>
         <div id="ai-lyt"></div>
         <div id="lyt-builder">
@@ -627,7 +666,10 @@ function savePrj() {
 
 function resetForm() {
   ['s-code','s-dev','s-proj','s-units','s-year','s-mpsf','s-apsf','s-transit','s-hub','s-comp','s-school','s-mall','s-anotes','s-exp'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  ['ai-psf','ai-area','ai-lyt','w1'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['ai-psf','ai-area','ai-lyt','ai-scout','w1'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  SD = null;
+  const fillBtn=document.getElementById('scout-fill-lyt');if(fillBtn)fillBtn.style.display='none';
+  ['s-mpsf'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.remove('scout-filled');});
   document.getElementById('lyt-builder').innerHTML=`<div class="lrow" id="lyt-0"><div class="lrow-hd"><span style="font-weight:500;font-size:13px;">Layout 1</span><button class="btn btn-danger btn-sm" onclick="rmLyt('lyt-0')">Remove</button></div><div class="row"><div><label>Type Label</label><input class="lt" placeholder="Type B"></div><div><label>Bedroom</label><select class="lb"><option>Studio</option><option>1br</option><option selected>2br</option><option>3br</option><option>3+1br</option><option>4br</option></select></div><div><label>Size (sqft)</label><input class="ls" type="number" placeholder="604"></div></div><div class="row"><div><label>SPA Price (RM)</label><input class="lp" type="number" placeholder="522278"></div><div><label>Rental Low (RM/mo)</label><input class="lrl" type="number" placeholder="1800"></div><div><label>Rental High (RM/mo)</label><input class="lrh" type="number" placeholder="2200"></div></div></div>`;
   lc=1; gs(1);
 }
@@ -643,7 +685,13 @@ function sp(id){
   if(id==='projects')rprojs();
   if(id==='tracker')rtracker();
   if(id==='cashflow')rcfsel();
-  if(id==='settings'){const k=getKey();if(k){document.getElementById('set-key').value=k;document.getElementById('key-msg').innerHTML='<span style="color:var(--accent);">✓ Key loaded.</span>';}}
+  if(id==='settings'){
+    const k=getKey();
+    if(k){document.getElementById('set-key').value=k;document.getElementById('key-msg').innerHTML='<span style="color:var(--accent);">✓ Key loaded.</span>';}
+    const sc=getScoutConf();
+    if(sc.url){document.getElementById('sb-url').value=sc.url;}
+    if(sc.key){document.getElementById('sb-anon').value=sc.key;}
+  }
 }
 
 function gs(n){
@@ -860,8 +908,138 @@ function skipKeyModal() {
   window.history.replaceState({}, '', window.location.pathname);
 })();
 
+// ─── FARCAPITAL SCOUT INTEGRATION ─────────────────────────────────────────
+let SD = null; // Latest Scout search result (top project)
+
+const STATE_MAP = {
+  SEL:'Selangor', KL:'Kuala Lumpur', JHR:'Johor', PNG:'Pulau Pinang',
+  SBH:'Sabah', SWK:'Sarawak', NSN:'Negeri Sembilan', MLK:'Melaka',
+  KDH:'Kedah', PRK:'Perak', PHG:'Pahang', TRG:'Terengganu', KTN:'Kelantan', PLS:'Perlis'
+};
+
+function getScoutConf() {
+  return {
+    url: (localStorage.getItem('qps_sb_url') || '').replace(/\/$/, ''),
+    key: localStorage.getItem('qps_sb_anon') || ''
+  };
+}
+
+function saveScoutConf() {
+  const url = (document.getElementById('sb-url').value || '').trim().replace(/\/$/, '');
+  const key = (document.getElementById('sb-anon').value || '').trim();
+  if (!url || !key) {
+    document.getElementById('sb-msg').innerHTML = '<span style="color:var(--danger);">Both fields required.</span>';
+    return;
+  }
+  localStorage.setItem('qps_sb_url', url);
+  localStorage.setItem('qps_sb_anon', key);
+  document.getElementById('sb-msg').innerHTML = '<span style="color:var(--accent);">✓ Scout config saved.</span>';
+  updateScoutStatus();
+}
+
+function updateScoutStatus() {
+  const { url, key } = getScoutConf();
+  const dot = document.getElementById('scout-status-dot');
+  if (!dot) return;
+  if (url && key) {
+    dot.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;"></span><span style="color:var(--accent);">Scout</span>';
+  } else {
+    dot.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#CBD5E0;display:inline-block;"></span><span style="color:var(--muted);">Scout</span>';
+  }
+}
+
+async function scoutSearch() {
+  const { url, key } = getScoutConf();
+  if (!url || !key) {
+    document.getElementById('ai-scout').innerHTML = '<div class="warn-banner">Scout not configured. <button class="btn btn-sm" onclick="sp(\'settings\')">Configure Scout →</button></div>';
+    return;
+  }
+  const proj = v('s-proj'), state = v('s-state');
+  if (!proj) { alert('Enter project name first.'); return; }
+  const fullState = STATE_MAP[state] || state;
+
+  document.getElementById('ai-scout').innerHTML = `<div class="aibox" style="border-color:#22C5A0;background:#E8FAF5;"><div class="ai-thinking"><div class="dots"><span></span><span></span><span></span></div><span style="color:#085041;"> Searching listings for ${proj} in ${fullState}…</span></div></div>`;
+
+  try {
+    const res = await fetch(`${url}/functions/v1/property-search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`,
+        'apikey': key
+      },
+      body: JSON.stringify({ message: `${proj} ${fullState} condominium for sale subsale` })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Scout returned ${res.status}: ${errText.slice(0, 120)}`);
+    }
+
+    const data = await res.json();
+    const projects = data.projects || [];
+
+    if (!projects.length) {
+      document.getElementById('ai-scout').innerHTML = '<div class="aibox" style="border-color:#22C5A0;background:#E8FAF5;"><div class="aibox-hd" style="color:#085041;">↓ Scout Result</div><div class="aibox-body" style="color:#085041;">No listings found. Try a broader area name or use AI Suggest PSF instead.</div></div>';
+      return;
+    }
+
+    // Use highest-urgency project as the reference
+    SD = projects[0];
+
+    // Fill median PSF
+    si('s-mpsf', SD.financials.median_psf);
+    document.getElementById('s-mpsf').classList.add('scout-filled');
+
+    // Reveal Fill-from-Scout button in Step 3
+    const fillBtn = document.getElementById('scout-fill-lyt');
+    if (fillBtn) fillBtn.style.display = '';
+
+    const yc = SD.financials.gross_yield >= 5 ? 'var(--accent)' : 'var(--warn)';
+    const uc = SD.financials.urgency_score >= 70 ? 'var(--accent)' : SD.financials.urgency_score >= 40 ? 'var(--warn)' : 'var(--danger)';
+    const projList = projects.slice(0,3).map(p=>`<span class="chip">${p.project_name} (${p.listing_count})</span>`).join('');
+
+    document.getElementById('ai-scout').innerHTML = `
+      <div class="aibox" style="border-color:#22C5A0;background:#E8FAF5;">
+        <div class="aibox-hd" style="color:#085041;">↓ Scout — ${projects.length} project${projects.length>1?'s':''} · ${projects.reduce((a,p)=>a+p.listing_count,0)} listings in ${fullState}</div>
+        <div class="scout-grid">
+          <div class="scout-metric"><div class="sl">Median PSF</div><div class="sv">RM${SD.financials.median_psf}</div></div>
+          <div class="scout-metric"><div class="sl">Gross Yield</div><div class="sv" style="color:${yc}">${SD.financials.gross_yield.toFixed(1)}%</div></div>
+          <div class="scout-metric"><div class="sl">BE PSF</div><div class="sv">RM${SD.financials.be_psf}</div></div>
+          <div class="scout-metric"><div class="sl">Urgency</div><div class="sv" style="color:${uc}">${SD.financials.urgency_score}/100</div></div>
+        </div>
+        <div class="pmeta" style="margin-top:8px;">${projList}</div>
+        <div style="font-size:11px;color:#718096;margin-top:6px;">Median PSF auto-filled ↑ · Go to Step 3 and click <strong>↑ Fill from Scout</strong> to populate rental estimates.</div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('ai-scout').innerHTML = `<div class="aibox err"><div class="aibox-body">Scout error: ${e.message}</div></div>`;
+  }
+}
+
+function scoutFillLayouts() {
+  if (!SD) return;
+  const { avg_sqft, est_monthly_rental } = SD.financials;
+  const rentLow  = Math.round(est_monthly_rental * 0.90 / 50) * 50;  // round to nearest 50
+  const rentHigh = Math.round(est_monthly_rental * 1.10 / 50) * 50;
+
+  const rows = document.querySelectorAll('[id^=lyt-]');
+  if (rows.length) {
+    const row = rows[0];
+    const ls = row.querySelector('.ls'), lrl = row.querySelector('.lrl'), lrh = row.querySelector('.lrh');
+    if (ls)  { ls.value  = avg_sqft;  ls.classList.add('scout-filled'); }
+    if (lrl) { lrl.value = rentLow;  lrl.classList.add('scout-filled'); }
+    if (lrh) { lrh.value = rentHigh; lrh.classList.add('scout-filled'); }
+  }
+
+  const fillBtn = document.getElementById('scout-fill-lyt');
+  if (fillBtn) fillBtn.style.display = 'none';
+
+  aiShow('ai-lyt', `Scout data filled: ~${avg_sqft} sqft, rental RM${rentLow.toLocaleString()}–RM${rentHigh.toLocaleString()}/mo. Adjust against the developer's sales kit — green-highlighted fields are Scout estimates.`);
+}
+
 (function init() {
   updateKeyStatus();
+  updateScoutStatus();
   const hasKey = !!getKey();
   const skipped = sessionStorage.getItem('key_modal_skipped');
   if (!hasKey && !skipped) {
