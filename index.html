@@ -856,8 +856,8 @@ function skipKeyModal() {
   document.getElementById('mo-firstkey').style.display = 'none';
 }
 
-// ─── TELEGRAM URL PREFILL ─────────────────────────────────
-// Reads ?proj=&dev=&units=&year=&state= from URL
+// ─── SCOUT / URL PREFILL ──────────────────────────────────
+// Reads ?proj=&dev=&units=&year=&state= from URL (sent by FarCapital Scout)
 // Auto-fills Step 1 and navigates to New Study
 (function loadFromURL() {
   const params = new URLSearchParams(window.location.search);
@@ -896,9 +896,9 @@ function skipKeyModal() {
   if (banner) {
     banner.innerHTML = `
       <div class="tg-banner">
-        <div class="tg-banner-icon">📲</div>
+        <div class="tg-banner-icon">🔍</div>
         <div class="tg-banner-text">
-          <div class="tg-title">Pre-filled from Telegram Bot</div>
+          <div class="tg-title">Pre-filled from FarCapital Scout</div>
           <div class="tg-sub">${proj} — review the fields below and click Next when ready.</div>
         </div>
       </div>`;
