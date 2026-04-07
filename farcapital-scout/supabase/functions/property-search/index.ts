@@ -128,6 +128,7 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
     typeStr,
     `"VP" OR "OC" OR "vacant possession" OR "occupation certificate" OR "completing" OR "completed"`,
     intent.tenure !== "all" ? intent.tenure : "",
+    `-rumawip -"low cost" -"rumah selangorku"`,
     `site:edgeprop.my OR site:propertyguru.com.my OR site:iproperty.com.my OR site:thestar.com.my OR site:malaymail.com OR site:nst.com.my`,
   ].filter(Boolean).join(" ");
 
@@ -201,7 +202,7 @@ async function searchProjectListings(
   const query = [
     `"${projectName}"`,
     `"developer unit" OR "completed" OR "completing" OR "VP" OR "OC"`,
-    `-auction -lelong -subsale -subsales`,
+    `-auction -lelong -subsale -subsales -rumawip -"low cost" -"rumah selangorku"`,
     `site:propertyguru.com.my OR site:iproperty.com.my OR site:edgeprop.my`,
   ].join(" ");
 
