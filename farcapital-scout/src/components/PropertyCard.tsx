@@ -1,4 +1,4 @@
-import { ExternalLink, TrendingUp, Building2, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock } from "lucide-react";
+import { ExternalLink, TrendingUp, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,14 @@ function formatLastSeen(date: string | null): string {
   return d.toLocaleDateString("en-MY", { month: "short", year: "numeric" });
 }
 
+const AVAILABILITY_CONFIG = {
+  high:   { label: "High Availability",   className: "bg-green-500/15 text-green-400 border-green-500/30" },
+  medium: { label: "Medium Availability", className: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
+  low:    { label: "Low Availability",    className: "bg-red-500/15 text-red-400 border-red-500/30" },
+};
+
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
-  const { project_name, area, state, listing_count, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen } = project;
+  const { project_name, area, state, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen, availability, availability_pct } = project;
   const { median_psf, gross_yield, urgency_score } = financials;
 
   const urgencyClass = urgencyBadge(urgency_score);
@@ -63,7 +69,7 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
         </div>
 
         {/* Metrics grid */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Metric
             icon={<BarChart3 className="h-3 w-3" />}
             label={psf_confidence === "real" ? "Median PSF" : "Est. PSF"}
@@ -76,11 +82,12 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
             value={`${gross_yield.toFixed(1)}%`}
             highlight={gross_yield >= 5}
           />
-          <Metric
-            icon={<Building2 className="h-3 w-3" />}
-            label="Listings"
-            value={String(listing_count)}
-          />
+        </div>
+
+        {/* Availability badge */}
+        <div className={cn("rounded-md px-3 py-2 flex items-center justify-between text-xs border", AVAILABILITY_CONFIG[availability].className)}>
+          <span className="font-medium">{AVAILABILITY_CONFIG[availability].label}</span>
+          <span className="font-bold">{availability_pct}%</span>
         </div>
 
         {/* Completion year + total units + last seen row */}

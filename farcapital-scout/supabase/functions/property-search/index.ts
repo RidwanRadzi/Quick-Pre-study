@@ -49,10 +49,12 @@ interface PropertyProject {
   financials: ProjectFinancials;
   completion_year: number | null;
   total_units: number | null;
-  best_listing_url: string | null;   // URL of the listing with real price data, or first result
-  best_source: string | null;        // source name of that listing
-  psf_confidence: "real" | "estimated";  // "real" if any listing had real price+sqft
-  last_seen: string | null;          // date of most recent listing result
+  best_listing_url: string | null;
+  best_source: string | null;
+  psf_confidence: "real" | "estimated";
+  last_seen: string | null;
+  availability: "high" | "medium" | "low";
+  availability_pct: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +210,7 @@ async function searchProjectListings(
   // Strict exclusion of auction, subsale, lelong
   const query = [
     `"${projectName}"`,
-    `"developer unit" OR "completed" OR "completing" OR "VP" OR "OC"`,
+    `"developer unit" OR "completing" OR "completed" OR "available unit"`,
     `-auction -lelong -subsale -subsales -rumawip -"low cost" -"rumah selangorku"`,
     `site:propertyguru.com.my OR site:iproperty.com.my OR site:edgeprop.my`,
   ].join(" ");
@@ -394,6 +396,39 @@ function computeFinancials(listings: RawListing[], area: string): ProjectFinanci
   };
 }
 
+// Compute developer unit availability confidence from Step B listings
+function computeAvailability(listings: RawListing[]): { availability: "high" | "medium" | "low"; availability_pct: number } {
+  let score = 0;
+
+  // Signal 1: real individual listing URLs found (not category pages)
+  const urlCount = listings.filter(l => l.listing_url).length;
+  if (urlCount >= 3) score += 40;
+  else if (urlCount >= 1) score += 25;
+
+  // Signal 2: strong availability keywords in snippets
+  const combined = listings.map(l => `${l.title} ${l.snippet}`).join(" ").toLowerCase();
+  if (combined.includes("developer unit")) score += 25;
+  if (combined.includes("available unit") || combined.includes("available now")) score += 20;
+  if (combined.includes("completing") || combined.includes("completed")) score += 10;
+  if (combined.includes("vacant possession") || combined.includes(" vp ") || combined.includes(" oc ")) score += 10;
+
+  // Signal 3: recent listings (penalty for old dates)
+  const dates = listings.filter(l => l.listing_date).map(l => l.listing_date!);
+  if (dates.length > 0) {
+    const mostRecent = dates.sort().reverse()[0];
+    const year = parseInt(mostRecent.slice(-4), 10);
+    if (!isNaN(year)) {
+      if (year >= 2024) score += 10;
+      else if (year >= 2022) score += 5;
+      else score -= 10; // stale listing, lower confidence
+    }
+  }
+
+  const pct = Math.max(5, Math.min(95, score));
+  const availability = pct >= 65 ? "high" : pct >= 35 ? "medium" : "low";
+  return { availability, availability_pct: pct };
+}
+
 function inferState(area: string): string {
   const a = area.toLowerCase();
   if (a.includes("kuala lumpur") || a === "kl" || a.includes("kepong") || a.includes("cheras") || a.includes("bangsar") || a.includes("mont kiara") || a.includes("setapak") || a.includes("bukit jalil")) return "Kuala Lumpur";
@@ -503,6 +538,8 @@ serve(async (req) => {
         const dates = listings.filter(l => l.listing_date).map(l => l.listing_date!);
         const lastSeen = dates.length > 0 ? dates.sort().reverse()[0] : null;
 
+        const { availability, availability_pct } = computeAvailability(listings);
+
         return {
           project_name: meta.name,
           area: intent.area,
@@ -516,6 +553,8 @@ serve(async (req) => {
           best_source: bestListing?.source ?? null,
           psf_confidence: hasPsfConfidence ? "real" : "estimated",
           last_seen: lastSeen,
+          availability,
+          availability_pct,
         };
       })
       .sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);

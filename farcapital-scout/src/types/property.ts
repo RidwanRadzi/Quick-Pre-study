@@ -47,6 +47,8 @@ export interface PropertyProject {
   best_source: string | null;
   psf_confidence: "real" | "estimated";
   last_seen: string | null;
+  availability: "high" | "medium" | "low";
+  availability_pct: number;
 }
 
 export interface ChatMessage {
