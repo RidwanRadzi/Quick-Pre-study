@@ -206,8 +206,8 @@ ${corpus}`;
     console.log("Step A — projects found:", items);
     return items
       .filter((p) => typeof p.name === "string" && p.name.length > 3)
-      // Hard-drop projects with a known completion year outside the valid window
-      .filter((p) => !p.completion_year || (p.completion_year >= minYear && p.completion_year <= maxYear))
+      // Only keep projects with a known completion year within the valid window
+      .filter((p) => p.completion_year !== null && p.completion_year >= minYear && p.completion_year <= maxYear)
       .slice(0, 6);
   } catch {
     return [];
