@@ -270,21 +270,44 @@ function parseListing(result: any): RawListing {
 // Common Malaysian property project name suffixes
 const PROPERTY_SUFFIX = /\b(residensi|residence|heights?|park|villa|tower|suites?|court|garden|view|hills?|sentral|central|aman|bayu|mutiara|perdana|impian|idaman|setia|wangsa|damai|permai|indah|maju|jaya|utama|putra|prima|sri|desa|city|square|avenue|place)\b/i;
 
+// Generic property type words that alone don't make a project name
+const GENERIC_TYPE = /^(apartments?|condominiums?|condos?|properties|property|pangsapuri|kondominium|rumah|soho|townhouse|residences?)\b\s*[,\/]?\s*$/i;
+
 // Detect category/listing-count pages that don't represent a single property
 function isCategoryPage(title: string, link: string): boolean {
-  // e.g. "1368 Kondominium untuk Dijual di Cheras"
-  if (/^\d{2,}\s+\w+\s+(untuk|for)\b/i.test(title)) return true;
-  // e.g. "Apartment / Condominium For Sale in Rawang, Selangor"
-  if (/^(apartment|condominium|property|pangsapuri|kondo)\s*(\/\s*\w+)?\s+(for sale|untuk dijual)/i.test(title)) return true;
-  // e.g. "5 Apartment / Condominium" (small counts are borderline — skip)
-  if (/^\d+\s+(apartment|condominium|property)\s*\//i.test(title)) return true;
-  // Portal search/listing URLs (not a single property detail page)
-  if (/\/(search|listing|property-for-sale|for-sale|buy|rent)\//i.test(link) && !/\/[a-z0-9-]{10,}$/i.test(link)) return true;
+  // ANY title starting with 2+ digit number is a listing count page
+  // e.g. "59 Bandar Country Homes...", "326 Condominium properties", "1368 Kondominium untuk"
+  if (/^\d{2,}\s+/i.test(title)) return true;
+  // Titles that are just a generic type word (plural or list)
+  // e.g. "Condominiums", "Apartments, Condos, Service Residences..."
+  if (GENERIC_TYPE.test(title)) return true;
+  // e.g. "Apartments, Condos, ..." — starts with type word followed by comma
+  if (/^(apartments?|condominiums?|condos?|properties)\s*,/i.test(title)) return true;
+  // e.g. "Apartment / Condominium For Sale..." or "Condominium properties in..."
+  if (/^(apartment|condominium|property|pangsapuri|kondo)\s*(\/|\bproperties\b)/i.test(title)) return true;
+  // Portal search/category URLs
+  if (/\/(search|listings?|property-for-sale|for-sale|cari|jual)\b/i.test(link)) return true;
   return false;
 }
 
 function extractProjectName(title: string, snippet: string): string | null {
-  // Skip category pages — return null so caller can discard
+  // For titles starting with a count number, try to rescue the project name embedded after
+  // e.g. "59 Bandar Country Homes Rawang in" → "Bandar Country Homes Rawang"
+  const countMatch = title.match(/^(\d{2,})\s+(.+)$/);
+  if (countMatch) {
+    const rest = countMatch[2];
+    // If the remainder is just a generic type, discard entirely
+    if (/^(apartment|condominium|condo|property|pangsapuri|kondominium)\b/i.test(rest)) return null;
+    // Otherwise strip trailing preposition + location and use as name
+    const rescued = rest
+      .replace(/\s+\b(in|di|at|for|untuk)\s+\S+.*$/i, "")
+      .replace(/\s+\b(in|di|at|for|untuk)\s*$/i, "")
+      .trim();
+    if (rescued.length > 5) return rescued.split(/\s+/).slice(0, 5).join(" ");
+    return null;
+  }
+
+  // Skip remaining category patterns
   if (isCategoryPage(title, "")) return null;
 
   // Clean title and use it if it looks like a real project name
@@ -296,8 +319,7 @@ function extractProjectName(title: string, snippet: string): string | null {
     .trim();
 
   const words = cleaned.split(/\s+/).slice(0, 6).join(" ").trim();
-  // Accept if not just a generic property type word
-  if (words.length > 4 && !/^(apartment|condominium|property|pangsapuri|kondo|rumah)\b/i.test(words)) {
+  if (words.length > 4 && !GENERIC_TYPE.test(words)) {
     return words;
   }
 
@@ -326,7 +348,7 @@ function extractProjectName(title: string, snippet: string): string | null {
     }
   }
 
-  // Cannot determine real project name — discard this listing
+  // Cannot determine real project name — discard
   return null;
 }
 
