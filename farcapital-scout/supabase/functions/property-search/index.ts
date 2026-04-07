@@ -62,7 +62,7 @@ Return ONLY valid JSON with these fields:
   "price_max": null or number in RM (e.g. 400000),
   "property_type": "condominium" | "apartment" | "serviced apartment" | "townhouse" | "all",
   "tenure": "freehold" | "leasehold" | "all",
-  "status": "subsale" | "new launch" | "all"
+  "status": "all"
 }
 
 Parsing rules:
@@ -129,11 +129,13 @@ function buildSearchQuery(intent: ParsedIntent): string {
   parts.push(intent.area);
   parts.push(intent.property_type === "all" ? "property" : intent.property_type);
 
-  if (intent.status === "subsale") parts.push("for sale subsale");
-  else if (intent.status === "new launch") parts.push("new launch");
-  else parts.push("for sale");
+  // Focus on developer units of completed projects with available stock
+  parts.push("developer unit completed available");
 
   if (intent.tenure !== "all") parts.push(intent.tenure);
+
+  // Exclude auction, lelong, and subsale listings
+  parts.push("-auction -lelong -subsale -subsales");
 
   // Target major Malaysian property portals + transaction data
   parts.push("site:mudah.my OR site:iproperty.com.my OR site:propertyguru.com.my OR site:brickz.my OR site:edgeprop.my");
