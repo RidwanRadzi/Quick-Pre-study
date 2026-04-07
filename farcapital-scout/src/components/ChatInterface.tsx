@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PropertyCard } from "@/components/PropertyCard";
-import { SmartSuggestions } from "@/components/SmartSuggestions";
+import { SmartSuggestions, PROPERTY_TYPES } from "@/components/SmartSuggestions";
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMessage, PropertyProject } from "@/types/property";
 
@@ -13,6 +13,8 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingProject, setSavingProject] = useState<string | null>(null);
+  // Default to serviced apartment; user can change
+  const [selectedType, setSelectedType] = useState("serviced apartment");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -20,9 +22,12 @@ export function ChatInterface() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage(text: string) {
-    const query = text.trim();
-    if (!query || loading) return;
+  async function sendMessage(location: string) {
+    const loc = location.trim();
+    if (!loc || loading) return;
+
+    // Combine selected type + location into one query
+    const query = `${loc} ${selectedType}`;
 
     const userMsg: ChatMessage = { role: "user", content: query };
     setMessages((prev) => [...prev, userMsg]);
@@ -48,10 +53,7 @@ export function ChatInterface() {
       toast.error("Search failed", { description: msg });
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: "Maaf, ada masalah dengan carian. Cuba semula ya.",
-        },
+        { role: "assistant", content: "Maaf, ada masalah dengan carian. Cuba semula ya." },
       ]);
     } finally {
       setLoading(false);
@@ -95,15 +97,18 @@ export function ChatInterface() {
       {/* Message thread */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
-            <div className="space-y-2">
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
+            <div className="space-y-1">
               <h2 className="text-xl font-semibold">FarCapital Scout</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Cari property Malaysia. Tanya dalam Bahasa Melayu atau English — kami parse intent dan cari listing
-                terbaik untuk anda.
+                Cari unit developer siap VP/OC — pilih jenis dulu, lepas tu masuk lokasi.
               </p>
             </div>
-            <SmartSuggestions onSelect={(s) => sendMessage(s)} />
+            <SmartSuggestions
+              selectedType={selectedType}
+              onTypeSelect={setSelectedType}
+              onLocationSelect={(loc) => sendMessage(loc)}
+            />
           </div>
         ) : (
           messages.map((msg, i) => <MessageRow key={i} msg={msg} onSave={saveToTracker} savingProject={savingProject} />)
@@ -122,7 +127,25 @@ export function ChatInterface() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-border/60 px-4 py-3">
+      <div className="border-t border-border/60 px-4 py-3 space-y-2">
+        {/* Type selector row — always visible */}
+        <div className="flex gap-1.5 flex-wrap">
+          {PROPERTY_TYPES.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setSelectedType(t.value)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                selectedType === t.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border/60 text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Location input */}
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -134,7 +157,7 @@ export function ChatInterface() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="cari projek siap Rawang below 400k…"
+            placeholder="Enter location e.g. Rawang, Cheras, Shah Alam…"
             className="flex-1 bg-background/60"
             disabled={loading}
           />
