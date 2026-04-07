@@ -227,30 +227,67 @@ function parseListing(result: any): RawListing {
 // Step 4 — Group results by project name
 // ---------------------------------------------------------------------------
 
-function extractProjectName(title: string): string {
-  // Property listing titles often follow:
-  // "The Maple Residences, Rawang - 900 sqft - RM 320,000"
-  // "Condo For Sale at The Maple Residences | Mudah"
-  // Strip portal suffixes and trailing metadata
-  let name = title
-    .replace(/\s*[\|–\-]\s*.*/g, "")  // Cut after — or | or -
-    .replace(/\s*for sale\b.*$/i, "")
-    .replace(/\s*dijual\b.*$/i, "")
-    .replace(/\bfreehold\b.*$/i, "")
-    .replace(/\bleasehold\b.*$/i, "")
-    .replace(/\d[\d,]*\s?(?:sqft|sq\.?\s?ft)\b.*$/i, "")
-    .replace(/RM\s?[\d,]+.*/i, "")
-    .trim();
+// Common Malaysian property project name suffixes
+const PROPERTY_SUFFIX = /\b(residensi|residence|heights?|park|villa|tower|suites?|court|garden|view|hills?|sentral|central|aman|bayu|mutiara|perdana|impian|idaman|setia|wangsa|damai|permai|indah|maju|jaya|utama|putra|prima|sri|desa|city|square|avenue|place)\b/i;
 
-  // Take first 6 words max
-  const words = name.split(/\s+/).slice(0, 6).join(" ").trim();
-  return words || title.slice(0, 40);
+function extractProjectName(title: string, snippet: string): string {
+  // Detect category/listing-count pages:
+  // e.g. "680 Kondominium untuk Dijual di Cheras"
+  //      "Apartment / Condominium For Sale in Rawang, Selangor"
+  const isCategoryTitle =
+    /^\d+\s+\w+\s+(untuk|for)\b/i.test(title) ||
+    /^(apartment|condominium|property|pangsapuri|kondo)\s*(\/\s*\w+)?\s+(for sale|untuk dijual)/i.test(title) ||
+    /^(apartment|condominium|property)\s+for\s+sale\b/i.test(title);
+
+  if (!isCategoryTitle) {
+    // Clean title and use it if it looks like a real project name
+    const cleaned = title
+      .replace(/\s*[\|–\-].*/, "")
+      .replace(/\s*(for sale|dijual|freehold|leasehold)\b.*/i, "")
+      .replace(/\d[\d,]*\s?(?:sqft|sq\.?\s?ft)\b.*/i, "")
+      .replace(/RM\s?[\d,]+.*/i, "")
+      .trim();
+
+    const words = cleaned.split(/\s+/).slice(0, 6).join(" ").trim();
+    // Accept if it's not just a generic property type word
+    if (words.length > 4 && !/^(apartment|condominium|property|pangsapuri|kondo|rumah)\b/i.test(words)) {
+      return words;
+    }
+  }
+
+  // --- Snippet-based extraction ---
+  const combined = `${snippet} ${title}`;
+
+  // Pattern 1: "at PROJECT NAME" / "di PROJECT NAME"
+  const atMatch = combined.match(/\b(?:at|@|di)\s+([A-Z][A-Za-z][A-Za-z\s\-]{2,40}?)(?=[,\.\|]|\s{2}|$)/);
+  if (atMatch && atMatch[1].trim().length > 4) return atMatch[1].trim().split(/\s+/).slice(0, 5).join(" ");
+
+  // Pattern 2: "PROJECT NAME, Area" — capitalized phrase before comma+place
+  const commaMatch = snippet.match(/^([A-Z][A-Za-z][A-Za-z\s\-]{3,40}),\s+[A-Z]/);
+  if (commaMatch) return commaMatch[1].trim();
+
+  // Pattern 3: scan for words near a known property suffix
+  const words = combined.split(/\s+/);
+  for (let i = 0; i < words.length; i++) {
+    if (PROPERTY_SUFFIX.test(words[i])) {
+      const start = Math.max(0, i - 3);
+      const phrase = words
+        .slice(start, i + 2)
+        .join(" ")
+        .replace(/[^A-Za-z\s\-]/g, "")
+        .trim();
+      if (phrase.length > 4) return phrase.split(/\s+/).slice(0, 5).join(" ");
+    }
+  }
+
+  // Last resort: strip leading count from title
+  return title.replace(/^\d+\s+/, "").split(/[\|–\-,]/)[0].trim().slice(0, 50) || "Unknown Project";
 }
 
 function groupByProject(listings: RawListing[]): Map<string, RawListing[]> {
   const groups = new Map<string, RawListing[]>();
   for (const listing of listings) {
-    const name = extractProjectName(listing.title);
+    const name = extractProjectName(listing.title, listing.snippet);
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name)!.push(listing);
   }
