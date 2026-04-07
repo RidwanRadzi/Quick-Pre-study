@@ -126,6 +126,13 @@ interface ProjectMeta {
 }
 
 async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
+  const currentYear = new Date().getFullYear();
+  const minYear = currentYear - 5;           // completed within last 5 years
+  const maxYear = currentYear + 1;           // completing within ~12 months
+
+  // Recent year range for query bias
+  const yearTerms = Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(minYear + i)).join(" OR ");
+
   const typeStr =
     intent.property_type === "all"
       ? "condominium OR apartment OR \"serviced apartment\" OR townhouse"
@@ -136,6 +143,7 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
     `"${intent.area}"`,
     typeStr,
     `"VP" OR "OC" OR "vacant possession" OR "occupation certificate" OR "completing" OR "completed"`,
+    `(${yearTerms})`,
     intent.tenure !== "all" ? intent.tenure : "",
     `-rumawip -"low cost" -"rumah selangorku"`,
     `site:edgeprop.my OR site:propertyguru.com.my OR site:iproperty.com.my OR site:thestar.com.my OR site:malaymail.com OR site:nst.com.my`,
@@ -151,14 +159,19 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
     .join("\n\n");
 
   const extractPrompt = `You are extracting Malaysian property project details from search result snippets.
-These results are from a search for completed/near-complete (VP/OC) residential projects in "${intent.area}".
+These results are from a search for recently completed or near-completing (VP/OC) residential projects in "${intent.area}".
 
-For each specific project you find, extract:
+IMPORTANT time filter — only include projects where:
+- Completion year is between ${minYear} and ${maxYear} (completed in last 5 years, or completing within 12 months)
+- If completion year is unknown, include it (we cannot rule it out)
+- EXCLUDE any project with a known completion year before ${minYear}
+
+For each qualifying project, extract:
 - name: proper project name (e.g. "Residensi Harmoni", "Tropicana Gardens", "Arte Plus")
-- completion_year: year of VP/OC/completion if mentioned (e.g. 2024, 2025), else null
-- total_units: total number of units in the project if mentioned, else null
+- completion_year: year of VP/OC/completion if mentioned, else null
+- total_units: total number of units if mentioned, else null
 
-DO NOT include generic terms like "condominium", "apartment", area names alone, or developer company names alone.
+DO NOT include generic terms, area names alone, or developer company names alone.
 
 Return ONLY a JSON array, max 6 items. Example:
 [{"name":"Residensi Harmoni","completion_year":2024,"total_units":512},{"name":"Arte Plus","completion_year":null,"total_units":null}]
@@ -191,7 +204,11 @@ ${corpus}`;
   try {
     const items = JSON.parse(txt) as ProjectMeta[];
     console.log("Step A — projects found:", items);
-    return items.filter((p) => typeof p.name === "string" && p.name.length > 3).slice(0, 6);
+    return items
+      .filter((p) => typeof p.name === "string" && p.name.length > 3)
+      // Hard-drop projects with a known completion year outside the valid window
+      .filter((p) => !p.completion_year || (p.completion_year >= minYear && p.completion_year <= maxYear))
+      .slice(0, 6);
   } catch {
     return [];
   }
@@ -206,11 +223,13 @@ async function searchProjectListings(
   area: string,
   serpApiKey: string
 ): Promise<RawListing[]> {
-  // Target PropertyGuru and iProperty with keywords that find developer/available units
-  // Strict exclusion of auction, subsale, lelong
+  const currentYear = new Date().getFullYear();
+  const yearTerms = [currentYear - 1, currentYear, currentYear + 1].join(" OR ");
+
   const query = [
     `"${projectName}"`,
     `"developer unit" OR "completing" OR "completed" OR "available unit"`,
+    `(${yearTerms})`,
     `-auction -lelong -subsale -subsales -rumawip -"low cost" -"rumah selangorku"`,
     `site:propertyguru.com.my OR site:iproperty.com.my OR site:edgeprop.my`,
   ].join(" ");
