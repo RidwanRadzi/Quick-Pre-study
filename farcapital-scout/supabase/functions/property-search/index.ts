@@ -25,6 +25,9 @@ interface RawListing {
   sqft: number | null;
   psf: number | null;
   source: "iproperty.com.my" | "propertyguru.com.my" | "edgeprop.my" | "developer" | "other";
+  listing_url: string | null;   // direct URL to the actual listing page
+  listing_date: string | null;  // date string from SerpAPI result if available
+  psf_confidence: "real" | "estimated";  // "real" if price+sqft both parsed, else "estimated"
 }
 
 interface ProjectFinancials {
@@ -46,6 +49,10 @@ interface PropertyProject {
   financials: ProjectFinancials;
   completion_year: number | null;
   total_units: number | null;
+  best_listing_url: string | null;   // URL of the listing with real price data, or first result
+  best_source: string | null;        // source name of that listing
+  psf_confidence: "real" | "estimated";  // "real" if any listing had real price+sqft
+  last_seen: string | null;          // date of most recent listing result
 }
 
 // ---------------------------------------------------------------------------
@@ -273,20 +280,44 @@ function detectSource(link: string): RawListing["source"] {
   return "other";
 }
 
+function isIndividualListingUrl(url: string): boolean {
+  // Category/search pages that are NOT individual listings
+  const categoryPatterns = [
+    /\/property-for-sale\/?$/i,
+    /\/property-for-rent\/?$/i,
+    /\/buy\/?$/i,
+    /\/search\/?$/i,
+    /\/listings\/?$/i,
+    /\/properties\/?$/i,
+    /[?&](q|search|query|area|location)=/i,
+  ];
+  for (const pattern of categoryPatterns) {
+    if (pattern.test(url)) return false;
+  }
+  // A real listing URL typically ends with a slug containing a numeric ID or long path segment
+  const hasSlug = /\/[a-z0-9-]{5,}\/[a-z0-9-]{5,}/i.test(url) || /\/\d{4,}/.test(url);
+  return hasSlug;
+}
+
 function parseListing(result: any): RawListing {
   const title: string = result.title ?? "";
   const snippet: string = result.snippet ?? "";
   const combined = `${title} ${snippet}`;
   const price = parsePrice(combined);
   const sqft = parseSqft(combined);
+  const link: string = result.link ?? "";
+  const listingUrl = link && isIndividualListingUrl(link) ? link : null;
   return {
     title,
-    link: result.link ?? "",
+    link,
     snippet,
     price,
     sqft,
     psf: price && sqft && sqft > 0 ? price / sqft : null,
-    source: detectSource(result.link ?? ""),
+    source: detectSource(link),
+    listing_url: listingUrl,
+    listing_date: result.date ?? null,
+    psf_confidence: price !== null && sqft !== null ? "real" : "estimated",
   };
 }
 
@@ -461,6 +492,17 @@ serve(async (req) => {
           if (intent.price_max && l.price > intent.price_max) return false;
           return true;
         });
+        // Pick best listing: prefer one with real PSF, then any with a URL
+        const listingsWithUrl = listings.filter(l => l.listing_url);
+        const realListing = listings.find(l => l.psf_confidence === "real" && l.listing_url);
+        const bestListing = realListing ?? listingsWithUrl[0] ?? listings[0];
+
+        const hasPsfConfidence = listings.some(l => l.psf_confidence === "real");
+
+        // Most recent date
+        const dates = listings.filter(l => l.listing_date).map(l => l.listing_date!);
+        const lastSeen = dates.length > 0 ? dates.sort().reverse()[0] : null;
+
         return {
           project_name: meta.name,
           area: intent.area,
@@ -470,6 +512,10 @@ serve(async (req) => {
           financials: computeFinancials(listings, intent.area),
           completion_year: meta.completion_year ?? null,
           total_units: meta.total_units ?? null,
+          best_listing_url: bestListing?.listing_url ?? null,
+          best_source: bestListing?.source ?? null,
+          psf_confidence: hasPsfConfidence ? "real" : "estimated",
+          last_seen: lastSeen,
         };
       })
       .sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);

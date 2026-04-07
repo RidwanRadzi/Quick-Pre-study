@@ -1,4 +1,4 @@
-import { ExternalLink, TrendingUp, Building2, BarChart3, BookmarkPlus, CalendarCheck, Home } from "lucide-react";
+import { ExternalLink, TrendingUp, Building2, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,25 @@ interface PropertyCardProps {
 
 const QPS_URL = import.meta.env.VITE_QPS_URL || "https://quick-pre-study.vercel.app";
 
+const SOURCE_LABELS: Record<string, string> = {
+  "propertyguru.com.my": "PropertyGuru",
+  "iproperty.com.my": "iProperty",
+  "edgeprop.my": "EdgeProp",
+  "developer": "Developer",
+};
+
+function formatLastSeen(date: string | null): string {
+  if (!date) return "—";
+  // If it looks like a relative string (e.g. "3 days ago", "1 week ago") return as-is
+  if (/\b(ago|day|week|month|hour|minute)\b/i.test(date)) return date;
+  // Try to parse as ISO date
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleDateString("en-MY", { month: "short", year: "numeric" });
+}
+
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
-  const { project_name, area, state, listing_count, financials, completion_year, total_units } = project;
+  const { project_name, area, state, listing_count, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen } = project;
   const { median_psf, gross_yield, urgency_score } = financials;
 
   const urgencyClass = urgencyBadge(urgency_score);
@@ -26,9 +43,16 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="font-semibold text-sm leading-tight truncate">{project_name}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {area}{state && state !== area ? `, ${state}` : ""}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <p className="text-xs text-muted-foreground">
+                {area}{state && state !== area ? `, ${state}` : ""}
+              </p>
+              {best_source && best_source !== "other" && SOURCE_LABELS[best_source] && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50 leading-none">
+                  {SOURCE_LABELS[best_source]}
+                </span>
+              )}
+            </div>
           </div>
           <Badge
             className={cn("shrink-0 border text-xs font-bold", urgencyClass)}
@@ -42,8 +66,9 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
         <div className="grid grid-cols-3 gap-3">
           <Metric
             icon={<BarChart3 className="h-3 w-3" />}
-            label="Median PSF"
-            value={formatPSF(median_psf)}
+            label={psf_confidence === "real" ? "Median PSF" : "Est. PSF"}
+            value={psf_confidence === "real" ? `${formatPSF(median_psf)} ✓` : formatPSF(median_psf)}
+            highlight={psf_confidence === "real"}
           />
           <Metric
             icon={<TrendingUp className="h-3 w-3" />}
@@ -58,18 +83,29 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
           />
         </div>
 
-        {/* Completion year + total units row */}
-        <div className="rounded-md bg-muted/40 px-3 py-2 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <CalendarCheck className="h-3 w-3" />
-            <span>Completion</span>
+        {/* Completion year + total units + last seen row */}
+        <div className="rounded-md bg-muted/40 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <CalendarCheck className="h-3 w-3" />
+              <span>Completion</span>
+            </div>
+            <span className="font-medium">{completion_year ?? "—"}</span>
           </div>
-          <span className="font-medium">{completion_year ?? "—"}</span>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Home className="h-3 w-3" />
-            <span>Total Units</span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Home className="h-3 w-3" />
+              <span>Total Units</span>
+            </div>
+            <span className="font-medium">{total_units ? total_units.toLocaleString() : "—"}</span>
           </div>
-          <span className="font-medium">{total_units ? total_units.toLocaleString() : "—"}</span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>Last Seen</span>
+            </div>
+            <span className="font-medium">{formatLastSeen(last_seen)}</span>
+          </div>
         </div>
       </CardContent>
 
@@ -83,6 +119,18 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
           <ExternalLink className="h-3 w-3" />
           Open in QPS
         </Button>
+        {best_listing_url && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-8 px-2.5"
+            title="View listing source"
+            onClick={() => window.open(best_listing_url, "_blank")}
+          >
+            <ExternalLink className="h-3 w-3" />
+            View Listing
+          </Button>
+        )}
         {onSave && (
           <Button
             variant="default"

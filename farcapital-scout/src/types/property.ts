@@ -43,6 +43,10 @@ export interface PropertyProject {
   financials: ProjectFinancials;
   completion_year: number | null;
   total_units: number | null;
+  best_listing_url: string | null;
+  best_source: string | null;
+  psf_confidence: "real" | "estimated";
+  last_seen: string | null;
 }
 
 export interface ChatMessage {
