@@ -70,7 +70,7 @@ Return ONLY valid JSON:
   "area": "Malaysian area/city/suburb e.g. 'Rawang', 'Kepong', 'Shah Alam'",
   "price_min": null or number in RM,
   "price_max": null or number in RM,
-  "property_type": "condominium" | "apartment" | "serviced apartment" | "townhouse" | "soho" | "all",
+  "property_type": "serviced apartment" | "condominium" | "apartment" | "townhouse" | "soho" | "all",
   "tenure": "freehold" | "leasehold" | "all"
 }
 
@@ -78,7 +78,8 @@ Rules:
 - "below 400k" → price_max: 400000
 - "above 300k" → price_min: 300000
 - If area not mentioned, default to "Kuala Lumpur"
-- If type not mentioned, default to "all"`;
+- If type not mentioned, default to "all" (system will focus on serviced apartment + condominium)
+- Recognise: "servis"/"serviced"/"SA" → "serviced apartment", "kondo"/"condo" → "condominium", "taun haus"/"teres" → "townhouse", "SOHO"/"SOVO" → "soho"`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -133,9 +134,10 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
   // Recent year range for query bias
   const yearTerms = Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(minYear + i)).join(" OR ");
 
+  // Default focuses on serviced apartment + condominium; user can override by specifying type
   const typeStr =
     intent.property_type === "all"
-      ? "condominium OR apartment OR \"serviced apartment\" OR townhouse"
+      ? "\"serviced apartment\" OR condominium"
       : `"${intent.property_type}"`;
 
   // Target editorial + news sources that report on VP/OC completions
