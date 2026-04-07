@@ -1,4 +1,4 @@
-import { ExternalLink, TrendingUp, Building2, BarChart3, BookmarkPlus } from "lucide-react";
+import { ExternalLink, TrendingUp, Building2, BarChart3, BookmarkPlus, CalendarCheck, Home } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ interface PropertyCardProps {
 const QPS_URL = import.meta.env.VITE_QPS_URL || "https://quick-pre-study.vercel.app";
 
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
-  const { project_name, area, state, listing_count, financials } = project;
-  const { median_psf, gross_yield, be_psf, urgency_score } = financials;
+  const { project_name, area, state, listing_count, financials, completion_year, total_units } = project;
+  const { median_psf, gross_yield, urgency_score } = financials;
 
   const urgencyClass = urgencyBadge(urgency_score);
 
@@ -58,12 +58,18 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
           />
         </div>
 
-        {/* Breakeven row */}
+        {/* Completion year + total units row */}
         <div className="rounded-md bg-muted/40 px-3 py-2 flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">BE PSF</span>
-          <span className="font-medium">{formatPSF(be_psf)}</span>
-          <span className="text-muted-foreground">BTE PSF</span>
-          <span className="font-medium text-primary">{formatPSF(be_psf * 0.85)}</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <CalendarCheck className="h-3 w-3" />
+            <span>Completion</span>
+          </div>
+          <span className="font-medium">{completion_year ?? "—"}</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Home className="h-3 w-3" />
+            <span>Total Units</span>
+          </div>
+          <span className="font-medium">{total_units ? total_units.toLocaleString() : "—"}</span>
         </div>
       </CardContent>
 

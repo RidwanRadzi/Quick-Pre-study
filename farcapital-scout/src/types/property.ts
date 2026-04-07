@@ -41,6 +41,8 @@ export interface PropertyProject {
   listing_count: number;
   listings: RawListing[];
   financials: ProjectFinancials;
+  completion_year: number | null;
+  total_units: number | null;
 }
 
 export interface ChatMessage {

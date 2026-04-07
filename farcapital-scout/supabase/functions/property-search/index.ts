@@ -44,6 +44,8 @@ interface PropertyProject {
   listing_count: number;
   listings: RawListing[];
   financials: ProjectFinancials;
+  completion_year: number | null;
+  total_units: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,17 +107,22 @@ Rules:
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Find real project names via editorial/news sources (Step A search)
+// Step 2 — Find real project names + metadata via editorial/news sources
 // ---------------------------------------------------------------------------
 
-async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthropicKey: string): Promise<string[]> {
+interface ProjectMeta {
+  name: string;
+  completion_year: number | null;
+  total_units: number | null;
+}
+
+async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
   const typeStr =
     intent.property_type === "all"
       ? "condominium OR apartment OR \"serviced apartment\" OR townhouse"
       : `"${intent.property_type}"`;
 
   // Target editorial + news sources that report on VP/OC completions
-  // These articles name real projects, unlike portal category pages
   const query = [
     `"${intent.area}"`,
     typeStr,
@@ -129,19 +136,22 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
   const results = await serpApiSearch(query, serpApiKey, 10);
   if (results.length === 0) return [];
 
-  // Use Claude to extract clean project names from the search result titles + snippets
   const corpus = results
     .map((r: any, i: number) => `[${i + 1}] Title: ${r.title}\nSnippet: ${r.snippet ?? ""}`)
     .join("\n\n");
 
-  const extractPrompt = `You are extracting Malaysian property project names from search result snippets.
+  const extractPrompt = `You are extracting Malaysian property project details from search result snippets.
 These results are from a search for completed/near-complete (VP/OC) residential projects in "${intent.area}".
 
-From the results below, extract all specific project names you can identify.
-A project name is a proper noun like "Residensi Harmoni", "Tropicana Gardens", "Setia Alam Impian 2", "Arte Plus".
-DO NOT include generic terms like "condominium", "apartment", "properties", area names alone, or developer company names alone.
+For each specific project you find, extract:
+- name: proper project name (e.g. "Residensi Harmoni", "Tropicana Gardens", "Arte Plus")
+- completion_year: year of VP/OC/completion if mentioned (e.g. 2024, 2025), else null
+- total_units: total number of units in the project if mentioned, else null
 
-Return ONLY a JSON array of strings (project names), max 6. Example: ["Project Alpha", "Residensi Beta", "Tower Gamma"]
+DO NOT include generic terms like "condominium", "apartment", area names alone, or developer company names alone.
+
+Return ONLY a JSON array, max 6 items. Example:
+[{"name":"Residensi Harmoni","completion_year":2024,"total_units":512},{"name":"Arte Plus","completion_year":null,"total_units":null}]
 If none found, return [].
 
 Search results:
@@ -156,9 +166,9 @@ ${corpus}`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5",
-      max_tokens: 300,
+      max_tokens: 400,
       temperature: 0.1,
-      system: "Return only valid JSON arrays. No explanation.",
+      system: "Return only valid JSON. No explanation.",
       messages: [{ role: "user", content: extractPrompt }],
     }),
   });
@@ -169,9 +179,9 @@ ${corpus}`;
   const txt = (d.content?.[0]?.text ?? "[]").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
 
   try {
-    const names = JSON.parse(txt) as string[];
-    console.log("Step A — project names found:", names);
-    return names.filter((n) => typeof n === "string" && n.length > 3).slice(0, 6);
+    const items = JSON.parse(txt) as ProjectMeta[];
+    console.log("Step A — projects found:", items);
+    return items.filter((p) => typeof p.name === "string" && p.name.length > 3).slice(0, 6);
   } catch {
     return [];
   }
@@ -429,23 +439,21 @@ serve(async (req) => {
     const intent = await parseIntent(message, anthropicKey);
     console.log("Intent:", JSON.stringify(intent));
 
-    // 2. Step A — discover real project names from editorial/news sources
-    const projectNames = await findProjectNames(intent, serpApiKey, anthropicKey);
+    // 2. Step A — discover real project names + metadata from editorial/news sources
+    const projectMetas = await findProjectNames(intent, serpApiKey, anthropicKey);
 
     // 3. Step B — for each project, search for available developer units on portals
-    //    Run up to 5 projects in parallel to stay within SerpAPI limits
     const projectListings = await Promise.all(
-      projectNames.slice(0, 5).map((name) =>
-        searchProjectListings(name, intent.area, serpApiKey)
+      projectMetas.slice(0, 5).map((meta) =>
+        searchProjectListings(meta.name, intent.area, serpApiKey)
       )
     );
 
     // 4. Build project objects with financials
     const state = inferState(intent.area);
-    const projects: PropertyProject[] = projectNames
+    const projects: PropertyProject[] = projectMetas
       .slice(0, 5)
-      .map((name, i) => {
-        // Apply price filter
+      .map((meta, i) => {
         const listings = projectListings[i].filter((l) => {
           if (!l.price) return true;
           if (intent.price_min && l.price < intent.price_min) return false;
@@ -453,12 +461,14 @@ serve(async (req) => {
           return true;
         });
         return {
-          project_name: name,
+          project_name: meta.name,
           area: intent.area,
           state,
           listing_count: listings.length,
           listings,
           financials: computeFinancials(listings, intent.area),
+          completion_year: meta.completion_year ?? null,
+          total_units: meta.total_units ?? null,
         };
       })
       .sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);
@@ -467,6 +477,7 @@ serve(async (req) => {
 
     // 5. Generate reply
     const replyMessage = await generateReply(message, intent.area, projects, anthropicKey);
+
 
     return new Response(
       JSON.stringify({ message: replyMessage, projects }),
