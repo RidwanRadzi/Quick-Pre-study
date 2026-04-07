@@ -2,12 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 
 const SUGGESTIONS = [
-  "cari projek siap Rawang below 400k",
-  "apartment subsale Kepong freehold below 500k",
-  "high yield condo Cheras below 600k",
-  "new launch Petaling Jaya below 800k",
-  "serviced apartment Cyberjaya below 350k",
-  "Shah Alam condo below 450k gross yield 5%",
+  "VP unit Rawang condo below 400k",
+  "OC stage serviced apartment Kepong freehold",
+  "projek siap developer unit Cheras below 600k",
+  "unsold VP condo Petaling Jaya below 800k",
+  "near completion SOHO Cyberjaya below 450k",
+  "developer unit vacant possession Shah Alam",
 ];
 
 interface SmartSuggestionsProps {

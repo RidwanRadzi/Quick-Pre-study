@@ -25,7 +25,7 @@ interface RawListing {
   price: number | null;
   sqft: number | null;
   psf: number | null;
-  source: "mudah.my" | "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "other";
+  source: "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "developer" | "other";
 }
 
 interface ProjectFinancials {
@@ -52,7 +52,8 @@ interface PropertyProject {
 // ---------------------------------------------------------------------------
 
 async function parseIntent(message: string, anthropicKey: string): Promise<ParsedIntent> {
-  const systemPrompt = `You are a Malaysian property search intent parser.
+  const systemPrompt = `You are a Malaysian property search intent parser for FarCapital Scout.
+FarCapital Scout's goal is to find UNSOLD DEVELOPER UNITS from completed (VP) or near-completion (OC) projects.
 Extract structured search parameters from the user's query (which may be in Malay, English, or mixed).
 
 Return ONLY valid JSON with these fields:
@@ -60,21 +61,23 @@ Return ONLY valid JSON with these fields:
   "area": "name of Malaysian area/city/suburb (string, e.g. 'Rawang', 'Kepong', 'Shah Alam')",
   "price_min": null or number in RM (e.g. 300000),
   "price_max": null or number in RM (e.g. 400000),
-  "property_type": "condominium" | "apartment" | "serviced apartment" | "townhouse" | "all",
+  "property_type": "condominium" | "apartment" | "serviced apartment" | "townhouse" | "soho" | "all",
   "tenure": "freehold" | "leasehold" | "all",
-  "status": "all"
+  "completion_stage": "VP" | "OC" | "all"
 }
 
 Parsing rules:
 - "below 400k" → price_max: 400000
 - "above 300k" → price_min: 300000
 - "350k-500k" → price_min: 350000, price_max: 500000
-- "projek siap" means completed projects → status: "subsale"
-- "new launch" / "projek baru" → status: "new launch"
+- "projek siap" / "VP" / "vacant possession" / "siap bina" / "completed" → completion_stage: "VP"
+- "OC" / "occupation certificate" / "near completion" / "hampir siap" → completion_stage: "OC"
 - "freehold" → tenure: "freehold"
 - "leasehold" → tenure: "leasehold"
+- Property types: kondo/condominium, apartment/pangsapuri, serviced apartment/servis, townhouse, SOHO/SOVO
 - If area not mentioned, default to "Kuala Lumpur"
-- If type not mentioned, default to "condominium"`;
+- If type not mentioned, default to "all"
+- completion_stage defaults to "all" (which searches both VP and OC)`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -112,7 +115,7 @@ Parsing rules:
       area: words.find((w) => w.length > 3 && /^[A-Z]/.test(w)) || "Kuala Lumpur",
       price_min: null,
       price_max: null,
-      property_type: "condominium",
+      property_type: "all",
       tenure: "all",
       status: "all",
     };
@@ -123,22 +126,52 @@ Parsing rules:
 // Step 2 — SerpAPI property search (Google organic)
 // ---------------------------------------------------------------------------
 
+// Top Malaysian developer domains for targeted searches
+const DEVELOPER_SITES = [
+  "site:spsetia.com",
+  "site:ioi.com.my",
+  "site:sunwayproperty.com",
+  "site:gamuda.com.my",
+  "site:ecoworld.com.my",
+  "site:mah-sing.com",
+  "site:uemSunrise.com",
+  "site:tropicana.com.my",
+  "site:sime-realty.com.my",
+  "site:ijmland.com",
+];
+
 function buildSearchQuery(intent: ParsedIntent): string {
   const parts: string[] = [];
 
+  // Area + property type
   parts.push(intent.area);
-  parts.push(intent.property_type === "all" ? "property" : intent.property_type);
 
-  // Focus on developer units of completed projects with available stock
-  parts.push("developer unit completed available");
+  const typeStr =
+    intent.property_type === "all"
+      ? "condominium OR apartment OR \"serviced apartment\" OR townhouse OR SOHO"
+      : intent.property_type;
+  parts.push(typeStr);
+
+  // Core focus: unsold developer stock at VP/OC stage
+  const completionStage = (intent as any).completion_stage as string | undefined;
+  if (completionStage === "VP") {
+    parts.push("\"vacant possession\" OR \"VP\" unsold developer unit");
+  } else if (completionStage === "OC") {
+    parts.push("\"occupation certificate\" OR \"OC\" developer unit available");
+  } else {
+    // Default: search both VP and OC stages
+    parts.push("(\"vacant possession\" OR \"VP\" OR \"OC\" OR \"occupation certificate\") developer unit unsold available");
+  }
 
   if (intent.tenure !== "all") parts.push(intent.tenure);
 
-  // Exclude auction, lelong, and subsale listings
-  parts.push("-auction -lelong -subsale -subsales");
+  // Exclude secondhand/auction noise
+  parts.push("-auction -lelong -subsale -subsales -\"for rent\"");
 
-  // Target major Malaysian property portals + transaction data
-  parts.push("site:mudah.my OR site:iproperty.com.my OR site:propertyguru.com.my OR site:brickz.my OR site:edgeprop.my");
+  // Reliable portals only (no mudah.my — it's a subsale/secondhand marketplace)
+  const portalSites = "site:propertyguru.com.my OR site:iproperty.com.my OR site:edgeprop.my OR site:brickz.my";
+  const devSites = DEVELOPER_SITES.slice(0, 4).join(" OR ");
+  parts.push(`(${portalSites} OR ${devSites})`);
 
   return parts.join(" ");
 }
@@ -194,12 +227,19 @@ function parseSqft(text: string): number | null {
   return parseFloat(m[1].replace(/,/g, ""));
 }
 
-function detectSource(link: string): "mudah.my" | "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "other" {
-  if (link.includes("mudah.my")) return "mudah.my";
+function detectSource(link: string): "iproperty.com.my" | "propertyguru.com.my" | "brickz.my" | "edgeprop.my" | "developer" | "other" {
   if (link.includes("iproperty")) return "iproperty.com.my";
   if (link.includes("propertyguru")) return "propertyguru.com.my";
   if (link.includes("brickz")) return "brickz.my";
   if (link.includes("edgeprop")) return "edgeprop.my";
+  // Classify known developer domains
+  if (
+    link.includes("spsetia.com") || link.includes("ioi.com.my") ||
+    link.includes("sunwayproperty") || link.includes("gamuda.com.my") ||
+    link.includes("ecoworld.com.my") || link.includes("mah-sing.com") ||
+    link.includes("uemsunrise.com") || link.includes("tropicana.com.my") ||
+    link.includes("sime-realty") || link.includes("ijmland.com")
+  ) return "developer";
   return "other";
 }
 
@@ -428,14 +468,15 @@ async function generateReply(
           .map((p) => `- ${p.project_name} (${p.area}): PSF RM${p.financials.median_psf}, Yield ${p.financials.gross_yield}%`)
           .join("\n");
 
-  const systemPrompt = `You are FarCapital Scout, a concise Malaysian property assistant.
+  const systemPrompt = `You are FarCapital Scout, a concise Malaysian property assistant specialising in unsold developer stock from completed (VP) and near-completion (OC) projects.
 Reply in 2–3 sentences (mix of English and Malay is fine).
-Summarise what was found, highlight standout projects, and give a brief investment note.
+Summarise what VP/OC units were found, highlight projects with good yield or urgency, and give a brief acquisition note.
 Do NOT repeat all the numbers — the user can see the cards.`;
 
+  const completionStage = (intent as any).completion_stage ?? "all";
   const userContent = `User asked: "${message}"
-Intent parsed: area=${intent.area}, price_max=${intent.price_max ?? "any"}, type=${intent.property_type}
-Top results:\n${summary}`;
+Intent parsed: area=${intent.area}, price_max=${intent.price_max ?? "any"}, type=${intent.property_type}, stage=${completionStage}
+Top VP/OC developer units found:\n${summary}`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
