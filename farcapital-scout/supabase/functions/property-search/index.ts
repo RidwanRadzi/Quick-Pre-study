@@ -270,29 +270,35 @@ function parseListing(result: any): RawListing {
 // Common Malaysian property project name suffixes
 const PROPERTY_SUFFIX = /\b(residensi|residence|heights?|park|villa|tower|suites?|court|garden|view|hills?|sentral|central|aman|bayu|mutiara|perdana|impian|idaman|setia|wangsa|damai|permai|indah|maju|jaya|utama|putra|prima|sri|desa|city|square|avenue|place)\b/i;
 
-function extractProjectName(title: string, snippet: string): string {
-  // Detect category/listing-count pages:
-  // e.g. "680 Kondominium untuk Dijual di Cheras"
-  //      "Apartment / Condominium For Sale in Rawang, Selangor"
-  const isCategoryTitle =
-    /^\d+\s+\w+\s+(untuk|for)\b/i.test(title) ||
-    /^(apartment|condominium|property|pangsapuri|kondo)\s*(\/\s*\w+)?\s+(for sale|untuk dijual)/i.test(title) ||
-    /^(apartment|condominium|property)\s+for\s+sale\b/i.test(title);
+// Detect category/listing-count pages that don't represent a single property
+function isCategoryPage(title: string, link: string): boolean {
+  // e.g. "1368 Kondominium untuk Dijual di Cheras"
+  if (/^\d{2,}\s+\w+\s+(untuk|for)\b/i.test(title)) return true;
+  // e.g. "Apartment / Condominium For Sale in Rawang, Selangor"
+  if (/^(apartment|condominium|property|pangsapuri|kondo)\s*(\/\s*\w+)?\s+(for sale|untuk dijual)/i.test(title)) return true;
+  // e.g. "5 Apartment / Condominium" (small counts are borderline — skip)
+  if (/^\d+\s+(apartment|condominium|property)\s*\//i.test(title)) return true;
+  // Portal search/listing URLs (not a single property detail page)
+  if (/\/(search|listing|property-for-sale|for-sale|buy|rent)\//i.test(link) && !/\/[a-z0-9-]{10,}$/i.test(link)) return true;
+  return false;
+}
 
-  if (!isCategoryTitle) {
-    // Clean title and use it if it looks like a real project name
-    const cleaned = title
-      .replace(/\s*[\|–\-].*/, "")
-      .replace(/\s*(for sale|dijual|freehold|leasehold)\b.*/i, "")
-      .replace(/\d[\d,]*\s?(?:sqft|sq\.?\s?ft)\b.*/i, "")
-      .replace(/RM\s?[\d,]+.*/i, "")
-      .trim();
+function extractProjectName(title: string, snippet: string): string | null {
+  // Skip category pages — return null so caller can discard
+  if (isCategoryPage(title, "")) return null;
 
-    const words = cleaned.split(/\s+/).slice(0, 6).join(" ").trim();
-    // Accept if it's not just a generic property type word
-    if (words.length > 4 && !/^(apartment|condominium|property|pangsapuri|kondo|rumah)\b/i.test(words)) {
-      return words;
-    }
+  // Clean title and use it if it looks like a real project name
+  const cleaned = title
+    .replace(/\s*[\|–\-].*/, "")
+    .replace(/\s*(for sale|dijual|freehold|leasehold)\b.*/i, "")
+    .replace(/\d[\d,]*\s?(?:sqft|sq\.?\s?ft)\b.*/i, "")
+    .replace(/RM\s?[\d,]+.*/i, "")
+    .trim();
+
+  const words = cleaned.split(/\s+/).slice(0, 6).join(" ").trim();
+  // Accept if not just a generic property type word
+  if (words.length > 4 && !/^(apartment|condominium|property|pangsapuri|kondo|rumah)\b/i.test(words)) {
+    return words;
   }
 
   // --- Snippet-based extraction ---
@@ -307,11 +313,11 @@ function extractProjectName(title: string, snippet: string): string {
   if (commaMatch) return commaMatch[1].trim();
 
   // Pattern 3: scan for words near a known property suffix
-  const words = combined.split(/\s+/);
-  for (let i = 0; i < words.length; i++) {
-    if (PROPERTY_SUFFIX.test(words[i])) {
+  const ws = combined.split(/\s+/);
+  for (let i = 0; i < ws.length; i++) {
+    if (PROPERTY_SUFFIX.test(ws[i])) {
       const start = Math.max(0, i - 3);
-      const phrase = words
+      const phrase = ws
         .slice(start, i + 2)
         .join(" ")
         .replace(/[^A-Za-z\s\-]/g, "")
@@ -320,14 +326,19 @@ function extractProjectName(title: string, snippet: string): string {
     }
   }
 
-  // Last resort: strip leading count from title
-  return title.replace(/^\d+\s+/, "").split(/[\|–\-,]/)[0].trim().slice(0, 50) || "Unknown Project";
+  // Cannot determine real project name — discard this listing
+  return null;
 }
 
 function groupByProject(listings: RawListing[]): Map<string, RawListing[]> {
   const groups = new Map<string, RawListing[]>();
   for (const listing of listings) {
+    // Skip category/portal-search pages — they don't represent a real project
+    if (isCategoryPage(listing.title, listing.link)) continue;
+
     const name = extractProjectName(listing.title, listing.snippet);
+    if (!name) continue; // couldn't identify a real project name
+
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name)!.push(listing);
   }
