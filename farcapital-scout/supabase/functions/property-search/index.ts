@@ -83,8 +83,13 @@ Return ONLY valid JSON:
 Rules:
 - "below 400k" → price_max: 400000
 - "above 300k" → price_min: 300000
+- ALWAYS use the EXACT area name the user typed — do NOT replace it with a bigger city
+  e.g. "Nilai" → area: "Nilai" (NOT "Kuala Lumpur"), "Semenyih" → "Semenyih", "Sepang" → "Sepang"
+- Malaysian areas include but are not limited to: Rawang, Nilai, Semenyih, Sepang, Bangi, Kajang,
+  Cheras, Kepong, Setapak, Shah Alam, Subang, Puchong, Klang, Port Klang, Seremban,
+  Johor Bahru, Iskandar Puteri, Penang, Georgetown, Ipoh, Kuching, Kota Kinabalu
 - If area not mentioned, default to "Kuala Lumpur"
-- If type not mentioned, default to "all" (system will focus on serviced apartment + condominium)
+- If type not mentioned, default to "all"
 - Recognise: "servis"/"serviced"/"SA" → "serviced apartment", "kondo"/"condo" → "condominium", "taun haus"/"teres" → "townhouse", "SOHO"/"SOVO" → "soho"`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -212,8 +217,24 @@ ${corpus}`;
   try {
     const items = JSON.parse(txt) as ProjectMeta[];
     console.log("Step A — projects found:", items);
+
+    // Drop projects whose name contains a city indicator clearly from a different area
+    // e.g. user searches "Nilai" but Claude extracts "KL48 Apartment"
+    const searchedArea = intent.area.toLowerCase();
+    const CITY_CONFLICTS: [string, RegExp][] = [
+      ["nilai",   /\bkl\b|kuala lumpur|mont kiara|klcc|bangsar/i],
+      ["rawang",  /\bkl\b|kuala lumpur|klcc|johor|penang/i],
+      ["johor",   /\bkl\b|kuala lumpur|rawang|penang|ipoh/i],
+      ["penang",  /\bkl\b|kuala lumpur|johor|rawang/i],
+      ["ipoh",    /\bkl\b|kuala lumpur|johor|penang/i],
+    ];
+    const conflictRule = CITY_CONFLICTS.find(([city]) => searchedArea.includes(city));
+    const conflictPattern = conflictRule?.[1];
+
     return items
       .filter((p) => typeof p.name === "string" && p.name.length > 3)
+      // Drop projects whose name signals a different city
+      .filter((p) => !conflictPattern || !conflictPattern.test(p.name))
       // Only keep projects with a known completion year within the valid window
       .filter((p) => p.completion_year !== null && p.completion_year >= minYear && p.completion_year <= maxYear)
       .slice(0, 6);
@@ -463,6 +484,10 @@ function inferState(area: string): string {
   if (a.includes("penang") || a.includes("georgetown")) return "Pulau Pinang";
   if (a.includes("ipoh") || a.includes("perak")) return "Perak";
   if (a.includes("putrajaya")) return "Putrajaya";
+  if (a.includes("nilai") || a.includes("seremban") || a.includes("port dickson") || a.includes("negeri sembilan")) return "Negeri Sembilan";
+  if (a.includes("melaka") || a.includes("malacca")) return "Melaka";
+  if (a.includes("kota bharu") || a.includes("kelantan")) return "Kelantan";
+  if (a.includes("kuantan") || a.includes("pahang")) return "Pahang";
   return "Selangor";
 }
 
