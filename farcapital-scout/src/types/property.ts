@@ -45,7 +45,7 @@ export interface PropertyProject {
   total_units: number | null;
   best_listing_url: string | null;
   best_source: string | null;
-  psf_confidence: "real" | "estimated";
+  psf_confidence: "real" | "estimated" | "scraped";
   last_seen: string | null;
   availability: "high" | "medium" | "low";
   availability_pct: number;
