@@ -1,4 +1,4 @@
-import { ExternalLink, TrendingUp, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock } from "lucide-react";
+import { ExternalLink, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
               className={cn("border text-xs font-bold", urgencyClass)}
               variant="outline"
             >
-              {urgency_score}/100
+              {urgency_score}
             </Badge>
             {psf_confidence === "scraped" && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 leading-none">
@@ -76,18 +76,12 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
         </div>
 
         {/* Metrics grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Metric
             icon={<BarChart3 className="h-3 w-3" />}
             label={psf_confidence === "real" ? "Median PSF" : "Est. PSF"}
             value={psf_confidence === "real" ? `${formatPSF(median_psf)} ✓` : formatPSF(median_psf)}
             highlight={psf_confidence === "real"}
-          />
-          <Metric
-            icon={<TrendingUp className="h-3 w-3" />}
-            label="Gross Yield"
-            value={`${gross_yield.toFixed(1)}%`}
-            highlight={gross_yield >= 5}
           />
         </div>
 
