@@ -37,7 +37,7 @@ const AVAILABILITY_CONFIG = {
 };
 
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
-  const { project_name, area, state, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen, availability, availability_pct } = project;
+  const { project_name, area, state, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen, availability, availability_pct, scraped_developer, scraped_status } = project;
   const { median_psf, gross_yield, urgency_score } = financials;
 
   const urgencyClass = urgencyBadge(urgency_score);
@@ -60,12 +60,19 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
               )}
             </div>
           </div>
-          <Badge
-            className={cn("shrink-0 border text-xs font-bold", urgencyClass)}
-            variant="outline"
-          >
-            {urgency_score}/100
-          </Badge>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <Badge
+              className={cn("border text-xs font-bold", urgencyClass)}
+              variant="outline"
+            >
+              {urgency_score}/100
+            </Badge>
+            {psf_confidence === "scraped" && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 leading-none">
+                Live scraped
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Metrics grid */}
@@ -89,6 +96,20 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
           <span className="font-medium">{AVAILABILITY_CONFIG[availability].label}</span>
           <span className="font-bold">{availability_pct}%</span>
         </div>
+
+        {/* Scraped developer / status row */}
+        {(scraped_developer || scraped_status) && (
+          <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2 flex items-center justify-between text-xs">
+            {scraped_developer && (
+              <span className="text-muted-foreground truncate max-w-[55%]">
+                <span className="text-blue-400 font-medium">Dev: </span>{scraped_developer}
+              </span>
+            )}
+            {scraped_status && (
+              <span className="text-blue-400 font-medium">{scraped_status}</span>
+            )}
+          </div>
+        )}
 
         {/* Completion year + total units + last seen row */}
         <div className="rounded-md bg-muted/40 px-3 py-2 grid grid-cols-3 gap-2 text-xs">

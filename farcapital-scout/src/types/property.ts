@@ -49,6 +49,11 @@ export interface PropertyProject {
   last_seen: string | null;
   availability: "high" | "medium" | "low";
   availability_pct: number;
+  scraped_price: number | null;
+  scraped_sqft: number | null;
+  scraped_psf: number | null;
+  scraped_developer: string | null;
+  scraped_status: string | null;
 }
 
 export interface ChatMessage {

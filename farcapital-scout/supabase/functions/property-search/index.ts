@@ -51,10 +51,16 @@ interface PropertyProject {
   total_units: number | null;
   best_listing_url: string | null;
   best_source: string | null;
-  psf_confidence: "real" | "estimated";
+  psf_confidence: "real" | "estimated" | "scraped";
   last_seen: string | null;
   availability: "high" | "medium" | "low";
   availability_pct: number;
+  // Step C — real scraped data from crawl4ai
+  scraped_price: number | null;
+  scraped_sqft: number | null;
+  scraped_psf: number | null;
+  scraped_developer: string | null;
+  scraped_status: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -461,6 +467,113 @@ function inferState(area: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Step C — Scrape real listing data via crawl4ai + extract with Claude
+// ---------------------------------------------------------------------------
+
+interface ScrapedListing {
+  price: number | null;
+  sqft: number | null;
+  psf: number | null;
+  developer: string | null;
+  status: string | null;
+}
+
+async function scrapeListingPage(
+  url: string,
+  crawl4aiUrl: string,
+  crawl4aiToken: string,
+  anthropicKey: string
+): Promise<ScrapedListing | null> {
+  try {
+    // Submit crawl job
+    const crawlRes = await fetch(`${crawl4aiUrl}/crawl`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${crawl4aiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ urls: [url], priority: 8 }),
+    });
+
+    if (!crawlRes.ok) {
+      console.error("crawl4ai submit error:", crawlRes.status);
+      return null;
+    }
+
+    const { task_id } = await crawlRes.json();
+    if (!task_id) return null;
+
+    // Poll for result — max 12 attempts × 2s = 24s
+    let markdown = "";
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const taskRes = await fetch(`${crawl4aiUrl}/task/${task_id}`, {
+        headers: { "Authorization": `Bearer ${crawl4aiToken}` },
+      });
+      if (!taskRes.ok) continue;
+      const taskData = await taskRes.json();
+      if (taskData.status === "completed" && taskData.result?.markdown) {
+        markdown = taskData.result.markdown;
+        break;
+      }
+      if (taskData.status === "failed") break;
+    }
+
+    if (!markdown) return null;
+
+    // Truncate to avoid Claude token overload — first 3000 chars has the key data
+    const excerpt = markdown.slice(0, 3000);
+
+    // Use Claude Haiku to extract structured listing data from the page
+    const extractRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 300,
+        temperature: 0,
+        system: "You extract Malaysian property listing data. Return ONLY valid JSON. No explanation.",
+        messages: [{
+          role: "user",
+          content: `Extract from this property listing page content:
+- price: asking price in RM as a number (e.g. 450000), null if not found
+- sqft: built-up size in sqft as number, null if not found
+- psf: price per sqft as number, null if not found (calculate if price+sqft available)
+- developer: developer/seller name as string, null if not found
+- status: availability status as short string e.g. "Available", "Developer Unit", "Completed", null if not found
+
+Return JSON: {"price":450000,"sqft":850,"psf":529,"developer":"SP Setia","status":"Developer Unit"}
+
+Page content:
+${excerpt}`,
+        }],
+      }),
+    });
+
+    if (!extractRes.ok) return null;
+    const extractData = await extractRes.json();
+    const raw = (extractData.content?.[0]?.text ?? "{}").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+    const parsed = JSON.parse(raw) as ScrapedListing;
+
+    // Calculate PSF if not present but price + sqft are
+    if (!parsed.psf && parsed.price && parsed.sqft && parsed.sqft > 0) {
+      parsed.psf = Math.round(parsed.price / parsed.sqft);
+    }
+
+    console.log(`Step C — scraped ${url}:`, parsed);
+    return parsed;
+  } catch (err) {
+    console.error("scrapeListingPage error:", err);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Generate friendly reply
 // ---------------------------------------------------------------------------
 
@@ -519,6 +632,8 @@ serve(async (req) => {
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const serpApiKey = Deno.env.get("SERPAPI_KEY");
+    const crawl4aiUrl = Deno.env.get("CRAWL4AI_URL") ?? "";
+    const crawl4aiToken = Deno.env.get("CRAWL4AI_TOKEN") ?? "";
     if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
     if (!serpApiKey) throw new Error("SERPAPI_KEY not set");
 
@@ -576,13 +691,82 @@ serve(async (req) => {
           last_seen: lastSeen,
           availability,
           availability_pct,
+          scraped_price: null,
+          scraped_sqft: null,
+          scraped_psf: null,
+          scraped_developer: null,
+          scraped_status: null,
         };
       })
       .sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);
 
+    // 5. Step C — scrape real listing pages via crawl4ai (up to 3 projects with a URL)
+    if (crawl4aiUrl) {
+      const scrapeTargets = projects
+        .filter((p) => p.best_listing_url)
+        .slice(0, 3);
+
+      const scrapeResults = await Promise.all(
+        scrapeTargets.map((p) =>
+          scrapeListingPage(p.best_listing_url!, crawl4aiUrl, crawl4aiToken, anthropicKey)
+        )
+      );
+
+      scrapeTargets.forEach((project, i) => {
+        const scraped = scrapeResults[i];
+        if (!scraped) return;
+
+        project.scraped_price = scraped.price;
+        project.scraped_sqft = scraped.sqft;
+        project.scraped_psf = scraped.psf;
+        project.scraped_developer = scraped.developer;
+        project.scraped_status = scraped.status;
+
+        // Override financials with real scraped PSF if available
+        if (scraped.psf && scraped.psf > 100 && scraped.psf < 3000) {
+          const sqft = scraped.sqft ?? project.financials.avg_sqft;
+          const estRental = sqft * RENTAL_PSF_PER_MONTH;
+          const medianPrice = scraped.psf * sqft;
+          const grossYield = (estRental * 12) / medianPrice * 100;
+          const r = LOAN_RATE / 100 / 12;
+          const n = LOAN_TENURE * 12;
+          const factor = (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+          const bePricePerUnit = Math.max(0, (estRental - MAINT_MONTHLY - SINKING_MONTHLY) / (LTV * factor));
+          const bePsf = bePricePerUnit / sqft;
+
+          project.financials = {
+            ...project.financials,
+            median_psf: scraped.psf,
+            gross_yield: parseFloat(grossYield.toFixed(2)),
+            be_psf: Math.round(bePsf),
+            bte_psf: Math.round(bePsf * 0.85),
+            urgency_score: Math.max(0, Math.min(100, Math.round((grossYield - 3) * 25))),
+            avg_sqft: sqft,
+            est_monthly_rental: Math.round(estRental),
+          };
+          project.psf_confidence = "scraped";
+        }
+
+        // Update availability if scraped status has strong signal
+        if (scraped.status) {
+          const s = scraped.status.toLowerCase();
+          if (s.includes("available") || s.includes("developer unit")) {
+            project.availability = "high";
+            project.availability_pct = Math.max(project.availability_pct, 75);
+          } else if (s.includes("sold") || s.includes("laku")) {
+            project.availability = "low";
+            project.availability_pct = Math.min(project.availability_pct, 20);
+          }
+        }
+      });
+
+      // Re-sort after scraped financials update
+      projects.sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);
+    }
+
     console.log(`Returning ${projects.length} projects`);
 
-    // 5. Generate reply
+    // 6. Generate reply
     const replyMessage = await generateReply(message, intent.area, projects, anthropicKey);
 
 
