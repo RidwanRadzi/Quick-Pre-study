@@ -38,7 +38,7 @@ const AVAILABILITY_CONFIG = {
 
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
   const { project_name, area, state, financials, completion_year, total_units, best_listing_url, best_source, psf_confidence, last_seen, availability, availability_pct, scraped_developer, scraped_status } = project;
-  const { median_psf, gross_yield, urgency_score } = financials;
+  const { median_psf, urgency_score } = financials;
 
   const urgencyClass = urgencyBadge(urgency_score);
 
