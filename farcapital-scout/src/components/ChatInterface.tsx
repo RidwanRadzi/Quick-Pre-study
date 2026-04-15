@@ -75,11 +75,32 @@ export function ChatInterface() {
           pipeline_status: "watchlist",
           raw_listings: project.listings as unknown as never,
           notes: null,
+          // Trust level fields
+          psf_confidence: project.psf_confidence,
+          psf_source_count: project.psf_source_count,
+          rental_psf_real: project.financials.rental_psf_real,
+          rental_source_count: project.financials.rental_source_count,
+          yield_confidence: project.financials.yield_confidence,
+          transaction_psf_low: project.transaction_psf_low,
+          transaction_psf_high: project.transaction_psf_high,
+          transaction_count: project.transaction_count,
+          // Enrichment metadata
+          completion_year: project.completion_year,
+          total_units: project.total_units,
+          availability: project.availability,
+          availability_pct: project.availability_pct,
+          scraped_developer: project.scraped_developer,
+          best_listing_url: project.best_listing_url,
         },
         { onConflict: "project_name" }
       );
       if (error) throw error;
       toast.success(`${project.project_name} added to Acquisition Tracker`);
+
+      // Fire-and-forget sync to Google Sheets
+      supabase.functions
+        .invoke("sheets-sync", { body: { action: "sync_one", project_name: project.project_name } })
+        .catch((err) => console.warn("sheets-sync fire-and-forget failed:", err));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Save failed";
       toast.error("Could not save project", { description: msg });

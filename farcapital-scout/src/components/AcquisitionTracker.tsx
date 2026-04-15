@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2, ExternalLink } from "lucide-react";
+import { Trash2, ExternalLink, Sheet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ function statusLabel(status: PipelineStatus) {
 export function AcquisitionTracker() {
   const [projects, setProjects] = useState<TrackedProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   async function fetchProjects() {
     setLoading(true);
@@ -54,6 +55,22 @@ export function AcquisitionTracker() {
       toast.error("Update failed", { description: error.message });
     } else {
       setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, pipeline_status: status } : p)));
+    }
+  }
+
+  async function syncToSheets() {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.functions.invoke("sheets-sync", {
+        body: { action: "sync_all" },
+      });
+      if (error) throw error;
+      toast.success("Synced to Google Sheets");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Sync failed";
+      toast.warning("Sheets sync failed", { description: msg });
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -84,7 +101,22 @@ export function AcquisitionTracker() {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-8 gap-1.5"
+          disabled={syncing || projects.length === 0}
+          onClick={syncToSheets}
+          title="Sync all tracked projects to Google Sheets"
+        >
+          {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sheet className="h-3.5 w-3.5" />}
+          {syncing ? "Syncing…" : "Sync to Sheets"}
+        </Button>
+      </div>
+
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border/60 text-muted-foreground text-xs">
@@ -93,6 +125,7 @@ export function AcquisitionTracker() {
             <th className="text-right py-2 pr-4 font-medium">Yield</th>
             <th className="text-right py-2 pr-4 font-medium">BE PSF</th>
             <th className="text-right py-2 pr-4 font-medium">Urgency</th>
+            <th className="text-left py-2 pr-4 font-medium">Trust</th>
             <th className="text-left py-2 pr-4 font-medium">Status</th>
             <th className="py-2 font-medium"></th>
           </tr>
@@ -108,6 +141,7 @@ export function AcquisitionTracker() {
               <td className="text-right py-3 pr-4 tabular-nums">
                 <span className={p.gross_yield >= 5 ? "text-primary font-medium" : ""}>
                   {p.gross_yield.toFixed(1)}%
+                  {p.yield_confidence === "real" && <span className="text-emerald-400"> ✓</span>}
                 </span>
               </td>
               <td className="text-right py-3 pr-4 tabular-nums">{formatPSF(p.be_psf)}</td>
@@ -115,6 +149,9 @@ export function AcquisitionTracker() {
                 <Badge className={cn("border text-xs", urgencyBadge(p.urgency_score))} variant="outline">
                   {p.urgency_score}
                 </Badge>
+              </td>
+              <td className="py-3 pr-4">
+                <TrustBadge confidence={p.psf_confidence} />
               </td>
               <td className="py-3 pr-4">
                 <Select
@@ -177,6 +214,20 @@ export function AcquisitionTracker() {
           );
         })}
       </div>
+      </div>
     </div>
   );
+}
+
+function TrustBadge({ confidence }: { confidence: TrackedProject["psf_confidence"] }) {
+  if (confidence === "scraped") {
+    return <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30">Scraped</span>;
+  }
+  if (confidence === "validated") {
+    return <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Validated</span>;
+  }
+  if (confidence === "real") {
+    return <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">Real</span>;
+  }
+  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">Est.</span>;
 }
