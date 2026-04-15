@@ -76,8 +76,7 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string>
 // K: Best Price to Enter (BTE) | L: Sourcing Suggestion (Verdict)
 // ---------------------------------------------------------------------------
 
-// Tab name in single quotes because it has a space
-const RANGE_BASE = "'MAIN PAGE'";
+const RANGE_BASE = "Sheet1";
 
 // Rows 1-2 are merged headers; data starts at row 3
 const HEADER_ROWS = 2;
