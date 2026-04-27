@@ -28,7 +28,8 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string>
 
   const signingInput = `${encode(header)}.${encode(payload)}`;
 
-  const pemKey = sa.private_key as string;
+  // Fix: handle both real \n and escaped \\n that can occur when storing in Supabase secrets
+  const pemKey = (sa.private_key as string).replace(/\\n/g, "\n");
   const pemBody = pemKey
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -69,50 +70,45 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string>
 }
 
 // ---------------------------------------------------------------------------
-// Column mapping — matches existing "MAIN PAGE" sheet structure:
+// Column layout — matches the user's existing sheet exactly
 // A: No. | B: Code | C: State | D: Developer | E: Project
-// F: Completion Year | G: Total Units Unsold | H: Research PIC
-// I: Date of Study Completed | J: Price to Breakeven (BE)
-// K: Best Price to Enter (BTE) | L: Sourcing Suggestion (Verdict)
+// F: Completion Year | G: Total Units Unsold | H: Research PIC (blank)
+// I: Date of Study Completed | J: BE Price | K: BTE Price (blank) | L: Verdict
 // ---------------------------------------------------------------------------
 
-const RANGE_BASE = "Sheet1";
-
-// Rows 1-2 are merged headers; data starts at row 3
-const HEADER_ROWS = 2;
-
-function makeCode(area: unknown, projectName: unknown): string {
-  const src = String(area ?? projectName ?? "");
-  return src
+function makeCode(projectName: string): string {
+  // Generate initials from project name words (uppercase, max 4 chars)
+  return projectName
     .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
+    .filter((w) => w.length > 2)
+    .map((w) => w[0].toUpperCase())
     .join("")
-    .toUpperCase()
-    .slice(0, 5);
+    .slice(0, 4);
 }
 
-function formatDate(date: Date): string {
-  const d = String(date.getDate()).padStart(2, "0");
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const y = date.getFullYear();
-  return `${d}/${m}/${y}`;
+function todayDMY(): string {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function projectToRow(p: Record<string, unknown>, rowNo: number): string[] {
+  const bePsf = p.be_psf != null ? `RM ${p.be_psf} psf` : "";
   return [
-    String(rowNo),                                              // A: No.
-    makeCode(p.area, p.project_name),                          // B: Code
-    String(p.state ?? ""),                                     // C: State
-    String(p.scraped_developer ?? ""),                         // D: Developer
-    String(p.project_name ?? ""),                              // E: Project
+    String(rowNo),                                        // A: No.
+    makeCode(String(p.project_name ?? "")),               // B: Code
+    String(p.state ?? ""),                                // C: State
+    String(p.scraped_developer ?? "—"),                   // D: Developer
+    String(p.project_name ?? ""),                         // E: Project
     p.completion_year != null ? String(p.completion_year) : "", // F: Completion Year
-    p.total_units != null ? String(p.total_units) : "",        // G: Total Units Unsold
-    "",                                                        // H: Research PIC (manual)
-    formatDate(new Date()),                                    // I: Date of Study Completed
-    "",                                                        // J: BE Price (manual)
-    "",                                                        // K: BTE Price (manual)
-    String(p.pipeline_status ?? "watchlist"),                  // L: Sourcing Suggestion
+    p.total_units != null ? String(p.total_units) : "",   // G: Total Units Unsold
+    "",                                                   // H: Research PIC (manual)
+    todayDMY(),                                           // I: Date of Study Completed
+    bePsf,                                                // J: BE Price
+    "",                                                   // K: BTE Price (manual)
+    String(p.pipeline_status ?? "watchlist"),             // L: Verdict
   ];
 }
 
@@ -121,6 +117,7 @@ function projectToRow(p: Record<string, unknown>, rowNo: number): string[] {
 // ---------------------------------------------------------------------------
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
+const TAB = "Sheet1";
 
 async function getSheetData(
   token: string,
@@ -133,41 +130,40 @@ async function getSheetData(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Sheets get failed: ${err}`);
+    throw new Error(`Sheets get failed (${res.status}): ${err}`);
   }
   const data = await res.json();
   return (data.values ?? []) as string[][];
 }
 
-async function updateRange(
+async function appendRows(
   token: string,
   spreadsheetId: string,
-  range: string,
   values: string[][]
 ): Promise<void> {
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const range = `${TAB}!A:L`;
+  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
   const res = await fetch(url, {
-    method: "PUT",
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ range, majorDimension: "ROWS", values }),
+    body: JSON.stringify({ majorDimension: "ROWS", values }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Sheets update failed: ${err}`);
+    throw new Error(`Sheets append failed (${res.status}): ${err}`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Read sheet state — returns last row number (col A value) and next sheet row
+// Read existing sheet to get last No. and existing project names (col E)
 // ---------------------------------------------------------------------------
 
 interface SheetState {
-  existingProjectNames: Set<string>; // column E values (lowercase)
-  lastNo: number;                    // last No. value in column A
-  nextSheetRow: number;              // next empty sheet row (1-based)
+  lastNo: number;
+  existingProjects: Set<string>;
 }
 
 async function readSheetState(
@@ -176,33 +172,26 @@ async function readSheetState(
 ): Promise<SheetState> {
   let rows: string[][] = [];
   try {
-    rows = await getSheetData(token, spreadsheetId, `${RANGE_BASE}!A:L`);
+    rows = await getSheetData(token, spreadsheetId, `${TAB}!A:E`);
   } catch {
-    rows = [];
+    // Sheet might be empty or tab not found — treat as empty
+    return { lastNo: 0, existingProjects: new Set() };
   }
 
-  const existingProjectNames = new Set<string>();
   let lastNo = 0;
-  let lastDataRowIndex = HEADER_ROWS - 1; // 0-based, last header row
+  const existingProjects = new Set<string>();
 
-  for (let i = HEADER_ROWS; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.every((cell) => !cell)) continue; // skip blank rows
+  for (const row of rows) {
+    // Col A (index 0) = No. — try to parse as integer
+    const no = parseInt(row[0] ?? "", 10);
+    if (!isNaN(no) && no > lastNo) lastNo = no;
 
-    // Column A: No.
-    const no = Number(row[0]);
-    if (!isNaN(no) && no > 0) lastNo = no;
-
-    // Column E: Project name (index 4)
-    if (row[4]) existingProjectNames.add(row[4].toLowerCase().trim());
-
-    lastDataRowIndex = i;
+    // Col E (index 4) = Project name
+    const projectName = (row[4] ?? "").trim();
+    if (projectName) existingProjects.add(projectName.toLowerCase());
   }
 
-  // nextSheetRow = 1-based sheet row after the last data row
-  const nextSheetRow = lastDataRowIndex + 2; // +1 for 0→1-based, +1 for next row
-
-  return { existingProjectNames, lastNo, nextSheetRow };
+  return { lastNo, existingProjects };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,23 +213,20 @@ serve(async (req) => {
     if (!spreadsheetId) throw new Error("GOOGLE_SHEET_ID not set");
     if (!supabaseUrl || !supabaseKey) throw new Error("Supabase env vars not set");
 
-    const { action, project_name } = await req.json() as { action: string; project_name?: string };
+    const body = await req.json() as { action: string; project_name?: string };
+    const { action, project_name } = body;
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const token = await getGoogleAccessToken(serviceAccountJson);
 
-    // Always read sheet state first
-    const state = await readSheetState(token, spreadsheetId);
-    console.log(`Sheet state: lastNo=${state.lastNo}, nextRow=${state.nextSheetRow}, existing=${state.existingProjectNames.size}`);
-
-    // -------------------------------------------------------------------------
-    // sync_all — append any Scout projects not already in the sheet
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // sync_all — append all Supabase projects not already in the sheet
+    // -----------------------------------------------------------------------
     if (action === "sync_all") {
       const { data: projects, error } = await supabase
         .from("projects")
         .select("*")
-        .order("urgency_score", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
       if (!projects || projects.length === 0) {
@@ -250,9 +236,12 @@ serve(async (req) => {
         );
       }
 
-      // Only append projects not already in the sheet
+      // Read existing sheet state
+      const { lastNo, existingProjects } = await readSheetState(token, spreadsheetId);
+
+      // Filter to only new projects
       const newProjects = projects.filter(
-        (p) => !state.existingProjectNames.has(String(p.project_name ?? "").toLowerCase().trim())
+        (p) => !existingProjects.has((p.project_name ?? "").toLowerCase())
       );
 
       if (newProjects.length === 0) {
@@ -262,33 +251,30 @@ serve(async (req) => {
         );
       }
 
-      let currentNo = state.lastNo;
-      let currentRow = state.nextSheetRow;
+      // Build rows with incrementing No.
+      const rows = newProjects.map((p, i) =>
+        projectToRow(p as Record<string, unknown>, lastNo + i + 1)
+      );
+
+      await appendRows(token, spreadsheetId, rows);
+
+      // Mark as synced in Supabase
       const now = new Date().toISOString();
+      await supabase
+        .from("projects")
+        .update({ sheets_synced_at: now })
+        .in("id", newProjects.map((p) => p.id));
 
-      for (const p of newProjects) {
-        currentNo += 1;
-        const row = projectToRow(p as Record<string, unknown>, currentNo);
-        await updateRange(token, spreadsheetId, `${RANGE_BASE}!A${currentRow}:L${currentRow}`, [row]);
-        currentRow += 1;
-
-        // Mark synced in Supabase
-        await supabase
-          .from("projects")
-          .update({ sheets_synced_at: now, sheets_row_id: String(currentRow - 1) })
-          .eq("id", (p as Record<string, unknown>).id);
-      }
-
-      console.log(`sync_all: appended ${newProjects.length} new rows starting at sheet row ${state.nextSheetRow}`);
+      console.log(`sync_all: appended ${rows.length} new rows (starting No. ${lastNo + 1})`);
       return new Response(
-        JSON.stringify({ ok: true, synced: newProjects.length, skipped: projects.length - newProjects.length }),
+        JSON.stringify({ ok: true, synced: rows.length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // -------------------------------------------------------------------------
-    // sync_one — append or update a single project
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // sync_one — append a single project if not already in sheet
+    // -----------------------------------------------------------------------
     if (action === "sync_one" && project_name) {
       const { data: project, error } = await supabase
         .from("projects")
@@ -296,37 +282,32 @@ serve(async (req) => {
         .eq("project_name", project_name)
         .single();
 
-      if (error || !project) throw new Error(`Project not found: ${project_name}`);
+      if (error || !project) {
+        throw new Error(`Project not found: ${project_name}`);
+      }
 
-      const p = project as Record<string, unknown>;
-      const alreadyInSheet = state.existingProjectNames.has(
-        String(p.project_name ?? "").toLowerCase().trim()
-      );
+      const { lastNo, existingProjects } = await readSheetState(token, spreadsheetId);
 
-      if (alreadyInSheet) {
-        // Project already exists — skip to avoid duplicating
-        console.log(`sync_one: "${project_name}" already in sheet, skipping`);
+      if (existingProjects.has(project_name.toLowerCase())) {
+        // Already in sheet — skip silently
+        console.log(`sync_one: "${project_name}" already in sheet, skipped`);
         return new Response(
           JSON.stringify({ ok: true, synced: 0, message: "Already in sheet" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const newNo = state.lastNo + 1;
-      const row = projectToRow(p, newNo);
-      await updateRange(token, spreadsheetId, `${RANGE_BASE}!A${state.nextSheetRow}:L${state.nextSheetRow}`, [row]);
+      const newRow = projectToRow(project as Record<string, unknown>, lastNo + 1);
+      await appendRows(token, spreadsheetId, [newRow]);
 
       await supabase
         .from("projects")
-        .update({
-          sheets_synced_at: new Date().toISOString(),
-          sheets_row_id: String(state.nextSheetRow),
-        })
+        .update({ sheets_synced_at: new Date().toISOString() })
         .eq("project_name", project_name);
 
-      console.log(`sync_one: appended "${project_name}" at row ${state.nextSheetRow} as No. ${newNo}`);
+      console.log(`sync_one: appended "${project_name}" as No. ${lastNo + 1}`);
       return new Response(
-        JSON.stringify({ ok: true, synced: 1, row: state.nextSheetRow, no: newNo }),
+        JSON.stringify({ ok: true, synced: 1 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
