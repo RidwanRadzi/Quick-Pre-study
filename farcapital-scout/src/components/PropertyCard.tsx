@@ -37,7 +37,7 @@ const AVAILABILITY_CONFIG = {
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
   const {
     project_name, area, state, financials, completion_year, year_verified, total_units,
-    best_listing_url, best_source, psf_confidence, psf_source_count,
+    best_listing_url, best_source, psf_confidence,
     last_seen, availability, availability_pct, scraped_developer, scraped_status,
     transaction_psf_low, transaction_psf_high, transaction_count,
   } = project;
@@ -144,7 +144,7 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
                 {completion_year}
                 {year_verified
                   ? <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                  : <AlertCircle className="h-3 w-3 text-amber-400" title="Year from editorial — unverified by listing" />
+                  : <AlertCircle className="h-3 w-3 text-amber-400" aria-label="Year from editorial — unverified by listing" />
                 }
               </span>
             ) : (
