@@ -41,6 +41,14 @@ const TOP_50_EXTRA_DOMAINS = [
   "kenanga-dev.com.my",
 ];
 
+// High-rise types — only these pass the filter
+const HIGH_RISE_TYPES = ["condominium", "serviced apartment", "soho", "sovo", "apartment"];
+
+function isHighRise(type: string): boolean {
+  const t = type.toLowerCase();
+  return HIGH_RISE_TYPES.some((h) => t.includes(h) || h.includes(t));
+}
+
 // ---------------------------------------------------------------------------
 // Brave Search helper
 // ---------------------------------------------------------------------------
@@ -191,6 +199,8 @@ For each NEW LAUNCH project found, extract:
 
 RULES:
 - Only include genuine NEW LAUNCH projects (not subsale, not resale)
+- HIGH-RISE ONLY: Condominium, Serviced Apartment, SOHO, SOVO, Apartment
+- EXCLUDE: Townhouse, Link House, Semi-D, Bungalow, Landed, Shophouse, Commercial
 - Must be in or near "${area}"
 - Skip generic "properties for sale" listing pages
 - Max 8 projects
@@ -232,6 +242,36 @@ ${corpus}`;
   } catch {
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Verify extracted launches with a second Brave search (1 extra call)
+// ---------------------------------------------------------------------------
+
+async function verifyLaunches(
+  launches: NewLaunchProject[],
+  area: string,
+  braveApiKey: string
+): Promise<NewLaunchProject[]> {
+  if (launches.length === 0) return [];
+
+  // Build a single OR query covering all project names
+  const nameQuery = launches.map((l) => `"${l.project_name}"`).join(" OR ");
+  const query = `(${nameQuery}) new launch "${area}" condominium OR "serviced apartment" OR SOHO`;
+
+  const results = await braveSearch(query, braveApiKey, 10);
+  const resultText = results
+    .map((r) => `${r.title} ${r.snippet}`)
+    .join(" ")
+    .toLowerCase();
+
+  return launches.filter((l) => {
+    // Check that meaningful words from the project name appear in verification results
+    const words = l.project_name.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    if (words.length === 0) return false;
+    const matched = words.filter((w) => resultText.includes(w)).length;
+    return matched >= Math.ceil(words.length * 0.6);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -315,10 +355,18 @@ serve(async (req) => {
     }
 
     // 4. Claude extracts structured launches
-    const launches = await extractNewLaunches(allResults, area, anthropicKey);
-    console.log("New Launches — extracted:", launches.length);
+    const extracted = await extractNewLaunches(allResults, area, anthropicKey);
+    console.log("New Launches — extracted:", extracted.length);
 
-    // 5. Generate reply
+    // 5. Filter to high-rise only
+    const highRise = extracted.filter((l) => isHighRise(l.property_type));
+    console.log("New Launches — after high-rise filter:", highRise.length);
+
+    // 6. Verify extracted projects with a secondary Brave search
+    const launches = await verifyLaunches(highRise, area, braveApiKey);
+    console.log("New Launches — after verification:", launches.length);
+
+    // 7. Generate reply
     const replyMessage = await generateReply(area, launches, anthropicKey);
 
     return new Response(

@@ -154,10 +154,10 @@ async function findProjectNames(intent: ParsedIntent, braveApiKey: string, anthr
   // Recent year range for query bias
   const yearTerms = Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(minYear + i)).join(" OR ");
 
-  // Default focuses on serviced apartment + condominium; user can override by specifying type
+  // Focus on high-rise only; user can override by specifying type
   const typeStr =
     intent.property_type === "all"
-      ? "\"serviced apartment\" OR condominium"
+      ? "\"serviced apartment\" OR condominium OR SOHO OR apartment"
       : `"${intent.property_type}"`;
 
   // Target editorial + news sources that report on VP/OC completions
@@ -167,7 +167,7 @@ async function findProjectNames(intent: ParsedIntent, braveApiKey: string, anthr
     `"VP" OR "OC" OR "vacant possession" OR "occupation certificate" OR "completing" OR "completed"`,
     `(${yearTerms})`,
     intent.tenure !== "all" ? intent.tenure : "",
-    `-rumawip -"low cost" -"rumah selangorku"`,
+    `-rumawip -"low cost" -"rumah selangorku" -townhouse -landed -"link house" -"semi-d" -bungalow`,
     `site:edgeprop.my OR site:propertyguru.com.my OR site:iproperty.com.my OR site:thestar.com.my OR site:malaymail.com OR site:nst.com.my`,
   ].filter(Boolean).join(" ");
 
@@ -193,6 +193,8 @@ For each qualifying project, extract:
 - completion_year: year of VP/OC/completion if mentioned, else null
 - total_units: total number of units if mentioned, else null
 
+IMPORTANT: Only include HIGH-RISE residential projects — condominium, serviced apartment, SOHO, apartment.
+EXCLUDE: townhouse, link house, semi-d, bungalow, landed housing, commercial lots, retail units.
 DO NOT include generic terms, area names alone, or developer company names alone.
 
 Return ONLY a JSON array, max 6 items. Example:
@@ -294,7 +296,7 @@ async function searchProjectListings(
     `"${projectName}"`,
     `"developer unit" OR "completing" OR "completed" OR "available unit"`,
     `(${yearTerms})`,
-    `-auction -lelong -subsale -subsales -rumawip -"low cost" -"rumah selangorku"`,
+    `-auction -lelong -subsale -subsales -rumawip -"low cost" -"rumah selangorku" -townhouse -landed -"link house"`,
     `site:propertyguru.com.my OR site:iproperty.com.my OR site:edgeprop.my`,
   ].join(" ");
 
@@ -916,6 +918,9 @@ serve(async (req) => {
           transaction_count: brickz.count,
         };
       })
+      // Verification gate: drop projects that have no portal listings AND no real PSF
+      // These are unconfirmed names from editorial with zero data quality
+      .filter((p) => p.listing_count > 0 || p.psf_confidence === "validated")
       .sort((a, b) => b.financials.urgency_score - a.financials.urgency_score);
 
     // 5. Step C — scrape real listing pages via crawl4ai (up to 3 projects with a URL)
