@@ -148,8 +148,8 @@ interface ProjectMeta {
 
 async function findProjectNames(intent: ParsedIntent, braveApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
   const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 3;           // completed within last 3 years (drop stale 2021/2022 stock)
-  const maxYear = currentYear + 1;           // completing within ~12 months
+  const minYear = 2020;
+  const maxYear = 2027;
 
   // Recent year range for query bias
   const yearTerms = Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(minYear + i)).join(" OR ");
@@ -184,7 +184,7 @@ async function findProjectNames(intent: ParsedIntent, braveApiKey: string, anthr
 These results are from a search for recently completed or near-completing (VP/OC) residential projects in "${intent.area}".
 
 IMPORTANT time filter — only include projects where:
-- Completion year is between ${minYear} and ${maxYear} (completed in last 3 years, or completing within 12 months)
+- Completion year is between ${minYear} and ${maxYear}
 - If completion year is unknown, include it (we cannot rule it out)
 - EXCLUDE any project with a known completion year before ${minYear}
 
@@ -260,9 +260,8 @@ ${corpus}`;
 
 // Extract a completion year (VP/OC) from raw text — returns null if not found / out of range
 function extractYearFromText(text: string): number | null {
-  const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 3;
-  const maxYear = currentYear + 2;
+  const minYear = 2020;
+  const maxYear = 2027;
 
   const patterns = [
     /VP\s+(?:in\s+)?Q?\d?\s*(\d{4})/i,
