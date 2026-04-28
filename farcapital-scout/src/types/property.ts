@@ -41,6 +41,36 @@ export interface ProjectFinancials {
   yield_confidence: "real" | "estimated";
 }
 
+// ---------------------------------------------------------------------------
+// New Launches
+// ---------------------------------------------------------------------------
+
+export interface NewLaunchProject {
+  project_name: string;
+  developer: string;
+  area: string;
+  state: string;
+  price_from: number | null;
+  price_to: number | null;
+  property_type: string;
+  unit_sizes: string | null;       // e.g. "650–1,200 sqft"
+  expected_vp: string | null;      // e.g. "Q3 2027"
+  source_url: string | null;
+  source_domain: string;           // e.g. "sp-setia.com"
+  tenure: string | null;
+  snippet: string;
+}
+
+export interface NewLaunchMessage {
+  role: "user" | "assistant";
+  content: string;
+  launches?: NewLaunchProject[];
+}
+
+// ---------------------------------------------------------------------------
+// Scout (VP/OC)
+// ---------------------------------------------------------------------------
+
 export interface PropertyProject {
   project_name: string;
   area: string;
@@ -49,6 +79,8 @@ export interface PropertyProject {
   listings: RawListing[];
   financials: ProjectFinancials;
   completion_year: number | null;
+  /** true = year was confirmed from a real portal listing snippet; false = editorial guess only */
+  year_verified: boolean;
   total_units: number | null;
   best_listing_url: string | null;
   best_source: string | null;
