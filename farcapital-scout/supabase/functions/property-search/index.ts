@@ -148,7 +148,7 @@ interface ProjectMeta {
 
 async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
   const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 5;           // completed within last 5 years
+  const minYear = currentYear - 3;           // completed within last 3 years (drop stale 2021/2022 stock)
   const maxYear = currentYear + 1;           // completing within ~12 months
 
   // Recent year range for query bias
@@ -184,7 +184,7 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
 These results are from a search for recently completed or near-completing (VP/OC) residential projects in "${intent.area}".
 
 IMPORTANT time filter — only include projects where:
-- Completion year is between ${minYear} and ${maxYear} (completed in last 5 years, or completing within 12 months)
+- Completion year is between ${minYear} and ${maxYear} (completed in last 3 years, or completing within 12 months)
 - If completion year is unknown, include it (we cannot rule it out)
 - EXCLUDE any project with a known completion year before ${minYear}
 
@@ -256,11 +256,37 @@ ${corpus}`;
 // Step 3 — Per-project search on portals (Step B search)
 // ---------------------------------------------------------------------------
 
+// Extract a completion year (VP/OC) from raw text — returns null if not found / out of range
+function extractYearFromText(text: string): number | null {
+  const currentYear = new Date().getFullYear();
+  const minYear = currentYear - 3;
+  const maxYear = currentYear + 2;
+
+  const patterns = [
+    /VP\s+(?:in\s+)?Q?\d?\s*(\d{4})/i,
+    /OC\s+(?:in\s+)?Q?\d?\s*(\d{4})/i,
+    /vacant possession\s+(?:in\s+)?(?:Q\d\s+)?(\d{4})/i,
+    /(?:expected\s+)?completion\s+(?:date\s+)?(?:in\s+)?(?:Q\d\s+)?(\d{4})/i,
+    /siap\s+(\d{4})/i,
+    /completed?\s+(?:in\s+)?(\d{4})/i,
+    /handover\s+(?:in\s+)?(?:Q\d\s+)?(\d{4})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const yr = parseInt(m[1], 10);
+      if (yr >= minYear && yr <= maxYear) return yr;
+    }
+  }
+  return null;
+}
+
 async function searchProjectListings(
   projectName: string,
   area: string,
   serpApiKey: string
-): Promise<RawListing[]> {
+): Promise<{ listings: RawListing[]; verified_year: number | null }> {
   const currentYear = new Date().getFullYear();
   const yearTerms = [currentYear - 1, currentYear, currentYear + 1].join(" OR ");
 
@@ -275,7 +301,13 @@ async function searchProjectListings(
   console.log(`Step B — listing search for "${projectName}":`, query);
 
   const results = await serpApiSearch(query, serpApiKey, 12);
-  return results.map(parseListing);
+  const listings = results.map(parseListing);
+
+  // Cross-check completion year from listing snippets
+  const combined = results.map((r: any) => `${r.title ?? ""} ${r.snippet ?? ""}`).join(" ");
+  const verified_year = extractYearFromText(combined);
+
+  return { listings, verified_year };
 }
 
 // ---------------------------------------------------------------------------
@@ -802,7 +834,7 @@ serve(async (req) => {
     // 3. Step B — for each project, search for available developer units on portals
     //    Run listing search, TL4 rental search, and TL5 brickz search in parallel
     const metas = projectMetas.slice(0, 5);
-    const [projectListings, rentalResults, brickzResults] = await Promise.all([
+    const [projectListingResults, rentalResults, brickzResults] = await Promise.all([
       Promise.all(metas.map((meta) => searchProjectListings(meta.name, intent.area, serpApiKey))),
       // TL4: rental searches — needs avg_sqft estimate up front; use 850 as default
       Promise.all(metas.map((meta) => searchRentalListings(meta.name, intent.area, 850, serpApiKey))),
@@ -814,12 +846,17 @@ serve(async (req) => {
     const state = inferState(intent.area);
     const projects: PropertyProject[] = metas
       .map((meta, i) => {
-        const listings = projectListings[i].filter((l) => {
+        const { listings: rawListings, verified_year } = projectListingResults[i];
+        const listings = rawListings.filter((l) => {
           if (!l.price) return true;
           if (intent.price_min && l.price < intent.price_min) return false;
           if (intent.price_max && l.price > intent.price_max) return false;
           return true;
         });
+
+        // Year: listing snippet wins over editorial; track whether it was verified
+        const finalYear = verified_year ?? meta.completion_year ?? null;
+        const year_verified = verified_year !== null;
         // Pick best listing: prefer one with real PSF, then any with a URL
         const listingsWithUrl = listings.filter(l => l.listing_url);
         const realListing = listings.find(l => l.psf_confidence === "real" && l.listing_url);
@@ -851,7 +888,8 @@ serve(async (req) => {
           listing_count: listings.length,
           listings,
           financials: computeFinancials(listings, intent.area, rentalData.rental_psf_real ? rentalData : null),
-          completion_year: meta.completion_year ?? null,
+          completion_year: finalYear,
+          year_verified,
           total_units: meta.total_units ?? null,
           best_listing_url: bestListing?.listing_url ?? null,
           best_source: bestListing?.source ?? null,

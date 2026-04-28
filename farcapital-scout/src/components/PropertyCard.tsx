@@ -1,4 +1,4 @@
-import { ExternalLink, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock, TrendingUp, ArrowLeftRight } from "lucide-react";
+import { ExternalLink, BarChart3, BookmarkPlus, CalendarCheck, Home, Clock, TrendingUp, ArrowLeftRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,39 +34,9 @@ const AVAILABILITY_CONFIG = {
   low:    { label: "Low Availability",    className: "bg-red-500/15 text-red-400 border-red-500/30" },
 };
 
-function PsfConfidenceBadge({ confidence, sourceCount }: { confidence: PropertyProject["psf_confidence"]; sourceCount: number }) {
-  if (confidence === "scraped") {
-    return (
-      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 leading-none">
-        Live scraped
-      </span>
-    );
-  }
-  if (confidence === "validated") {
-    return (
-      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 leading-none">
-        Cross-validated ({sourceCount} src)
-      </span>
-    );
-  }
-  if (confidence === "real") {
-    return (
-      <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 leading-none">
-        {sourceCount > 1 ? `${sourceCount} sources` : "1 source"}
-      </span>
-    );
-  }
-  // estimated
-  return (
-    <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50 leading-none">
-      Est.
-    </span>
-  );
-}
-
 export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
   const {
-    project_name, area, state, financials, completion_year, total_units,
+    project_name, area, state, financials, completion_year, year_verified, total_units,
     best_listing_url, best_source, psf_confidence, psf_source_count,
     last_seen, availability, availability_pct, scraped_developer, scraped_status,
     transaction_psf_low, transaction_psf_high, transaction_count,
@@ -100,7 +70,6 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
             >
               {urgency_score}
             </Badge>
-            <PsfConfidenceBadge confidence={psf_confidence} sourceCount={psf_source_count} />
           </div>
         </div>
 
@@ -170,7 +139,17 @@ export function PropertyCard({ project, onSave, saving }: PropertyCardProps) {
               <CalendarCheck className="h-3 w-3" />
               <span>Completion</span>
             </div>
-            <span className="font-medium">{completion_year ?? "—"}</span>
+            {completion_year ? (
+              <span className={cn("font-medium flex items-center gap-1", !year_verified && "text-amber-400")}>
+                {completion_year}
+                {year_verified
+                  ? <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                  : <AlertCircle className="h-3 w-3 text-amber-400" title="Year from editorial — unverified by listing" />
+                }
+              </span>
+            ) : (
+              <span className="font-medium">—</span>
+            )}
           </div>
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1 text-muted-foreground">
