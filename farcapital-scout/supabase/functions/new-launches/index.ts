@@ -42,22 +42,33 @@ const TOP_50_EXTRA_DOMAINS = [
 ];
 
 // ---------------------------------------------------------------------------
-// SerpAPI helper
+// Brave Search helper
 // ---------------------------------------------------------------------------
 
-async function serpApiSearch(query: string, serpApiKey: string, num = 10): Promise<any[]> {
-  const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google");
+async function braveSearch(query: string, braveApiKey: string, num = 10): Promise<any[]> {
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q", query);
-  url.searchParams.set("gl", "my");
-  url.searchParams.set("hl", "en");
-  url.searchParams.set("num", String(num));
-  url.searchParams.set("api_key", serpApiKey);
+  url.searchParams.set("count", String(Math.min(num, 20)));
+  url.searchParams.set("country", "my");
+  url.searchParams.set("search_lang", "en");
 
-  const res = await fetch(url.toString());
-  if (!res.ok) return [];
+  const res = await fetch(url.toString(), {
+    headers: {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip",
+      "X-Subscription-Token": braveApiKey,
+    },
+  });
+  if (!res.ok) {
+    console.error("Brave Search error:", res.status, await res.text());
+    return [];
+  }
   const data = await res.json();
-  return data.organic_results ?? [];
+  return (data.web?.results ?? []).map((r: any) => ({
+    title: r.title ?? "",
+    link: r.url ?? "",
+    snippet: r.description ?? "",
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +103,7 @@ async function parseArea(message: string, anthropicKey: string): Promise<string>
 async function searchDeveloperLaunches(
   area: string,
   domains: string[],
-  serpApiKey: string
+  braveApiKey: string
 ): Promise<any[]> {
   const currentYear = new Date().getFullYear();
   const siteFilter = domains.map((d) => `site:${d}`).join(" OR ");
@@ -105,14 +116,14 @@ async function searchDeveloperLaunches(
   ].join(" ");
 
   console.log("New Launches — developer search:", query);
-  return serpApiSearch(query, serpApiKey, 10);
+  return braveSearch(query, braveApiKey, 10);
 }
 
 // ---------------------------------------------------------------------------
 // Also search PropertyGuru new project section
 // ---------------------------------------------------------------------------
 
-async function searchPropertyGuruNewLaunches(area: string, serpApiKey: string): Promise<any[]> {
+async function searchPropertyGuruNewLaunches(area: string, braveApiKey: string): Promise<any[]> {
   const currentYear = new Date().getFullYear();
   const query = [
     `"${area}"`,
@@ -123,7 +134,7 @@ async function searchPropertyGuruNewLaunches(area: string, serpApiKey: string): 
   ].join(" ");
 
   console.log("New Launches — PropertyGuru search:", query);
-  return serpApiSearch(query, serpApiKey, 8);
+  return braveSearch(query, braveApiKey, 8);
 }
 
 // ---------------------------------------------------------------------------
@@ -278,9 +289,9 @@ serve(async (req) => {
     const { message } = await req.json();
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const serpApiKey = Deno.env.get("SERPAPI_KEY");
+    const braveApiKey = Deno.env.get("BRAVE_API_KEY");
     if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
-    if (!serpApiKey) throw new Error("SERPAPI_KEY not set");
+    if (!braveApiKey) throw new Error("BRAVE_API_KEY not set");
 
     // 1. Parse area
     const area = await parseArea(message, anthropicKey);
@@ -288,8 +299,8 @@ serve(async (req) => {
 
     // 2. Search top 10 developer sites + PropertyGuru in parallel
     const [devResults, pgResults] = await Promise.all([
-      searchDeveloperLaunches(area, TOP_10_DOMAINS, serpApiKey),
-      searchPropertyGuruNewLaunches(area, serpApiKey),
+      searchDeveloperLaunches(area, TOP_10_DOMAINS, braveApiKey),
+      searchPropertyGuruNewLaunches(area, braveApiKey),
     ]);
 
     let allResults = [...devResults, ...pgResults];
@@ -298,7 +309,7 @@ serve(async (req) => {
     // 3. If fewer than 3 results, expand to top 50
     if (devResults.length < 3) {
       console.log("New Launches — expanding to top-50 developers");
-      const extraResults = await searchDeveloperLaunches(area, TOP_50_EXTRA_DOMAINS, serpApiKey);
+      const extraResults = await searchDeveloperLaunches(area, TOP_50_EXTRA_DOMAINS, braveApiKey);
       allResults = [...allResults, ...extraResults];
       console.log(`New Launches — after expansion: ${allResults.length}`);
     }

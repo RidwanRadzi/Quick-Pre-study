@@ -26,7 +26,7 @@ interface RawListing {
   psf: number | null;
   source: "iproperty.com.my" | "propertyguru.com.my" | "edgeprop.my" | "developer" | "other";
   listing_url: string | null;   // direct URL to the actual listing page
-  listing_date: string | null;  // date string from SerpAPI result if available
+  listing_date: string | null;  // date string from search result if available
   psf_confidence: "real" | "estimated";  // "real" if price+sqft both parsed, else "estimated"
 }
 
@@ -146,7 +146,7 @@ interface ProjectMeta {
   total_units: number | null;
 }
 
-async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
+async function findProjectNames(intent: ParsedIntent, braveApiKey: string, anthropicKey: string): Promise<ProjectMeta[]> {
   const currentYear = new Date().getFullYear();
   const minYear = currentYear - 3;           // completed within last 3 years (drop stale 2021/2022 stock)
   const maxYear = currentYear + 1;           // completing within ~12 months
@@ -173,7 +173,7 @@ async function findProjectNames(intent: ParsedIntent, serpApiKey: string, anthro
 
   console.log("Step A — project discovery query:", query);
 
-  const results = await serpApiSearch(query, serpApiKey, 10);
+  const results = await braveSearch(query, braveApiKey, 10);
   if (results.length === 0) return [];
 
   const corpus = results
@@ -285,7 +285,7 @@ function extractYearFromText(text: string): number | null {
 async function searchProjectListings(
   projectName: string,
   area: string,
-  serpApiKey: string
+  braveApiKey: string
 ): Promise<{ listings: RawListing[]; verified_year: number | null }> {
   const currentYear = new Date().getFullYear();
   const yearTerms = [currentYear - 1, currentYear, currentYear + 1].join(" OR ");
@@ -300,7 +300,7 @@ async function searchProjectListings(
 
   console.log(`Step B — listing search for "${projectName}":`, query);
 
-  const results = await serpApiSearch(query, serpApiKey, 12);
+  const results = await braveSearch(query, braveApiKey, 12);
   const listings = results.map(parseListing);
 
   // Cross-check completion year from listing snippets
@@ -311,25 +311,33 @@ async function searchProjectListings(
 }
 
 // ---------------------------------------------------------------------------
-// SerpAPI helper
+// Brave Search helper
 // ---------------------------------------------------------------------------
 
-async function serpApiSearch(query: string, serpApiKey: string, num = 10): Promise<any[]> {
-  const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google");
+async function braveSearch(query: string, braveApiKey: string, num = 10): Promise<any[]> {
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q", query);
-  url.searchParams.set("gl", "my");
-  url.searchParams.set("hl", "en");
-  url.searchParams.set("num", String(num));
-  url.searchParams.set("api_key", serpApiKey);
+  url.searchParams.set("count", String(Math.min(num, 20)));
+  url.searchParams.set("country", "my");
+  url.searchParams.set("search_lang", "en");
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    headers: {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip",
+      "X-Subscription-Token": braveApiKey,
+    },
+  });
   if (!res.ok) {
-    console.error("SerpAPI error:", res.status, await res.text());
+    console.error("Brave Search error:", res.status, await res.text());
     return [];
   }
   const data = await res.json();
-  return data.organic_results ?? [];
+  return (data.web?.results ?? []).map((r: any) => ({
+    title: r.title ?? "",
+    link: r.url ?? "",
+    snippet: r.description ?? "",
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -550,7 +558,7 @@ function computePsfValidation(listings: RawListing[]): {
 }
 
 // ---------------------------------------------------------------------------
-// TL4 — Real rental data via SerpAPI
+// TL4 — Real rental data via Brave Search
 // ---------------------------------------------------------------------------
 
 function parseRentalPrice(text: string): number | null {
@@ -569,13 +577,13 @@ async function searchRentalListings(
   projectName: string,
   area: string,
   avgSqft: number,
-  serpApiKey: string
+  braveApiKey: string
 ): Promise<{ rental_psf_real: number | null; rental_source_count: number }> {
   try {
     const query = `"${projectName}" rental "per month" OR "monthly" OR "/month" site:propertyguru.com.my OR site:iproperty.com.my`;
     console.log(`TL4 — rental search for "${projectName}":`, query);
 
-    const results = await serpApiSearch(query, serpApiKey, 8);
+    const results = await braveSearch(query, braveApiKey, 8);
     const rentalPrices: number[] = [];
 
     for (const r of results) {
@@ -608,13 +616,13 @@ async function searchRentalListings(
 async function searchBrickzTransactions(
   projectName: string,
   area: string,
-  serpApiKey: string
+  braveApiKey: string
 ): Promise<{ low: number | null; high: number | null; count: number }> {
   try {
     const query = `"${projectName}" site:brickz.my psf OR "per sq ft" OR transaction`;
     console.log(`TL5 — brickz search for "${projectName}":`, query);
 
-    const results = await serpApiSearch(query, serpApiKey, 6);
+    const results = await braveSearch(query, braveApiKey, 6);
     const psfValues: number[] = [];
 
     for (const r of results) {
@@ -817,11 +825,11 @@ serve(async (req) => {
     const { message } = await req.json();
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const serpApiKey = Deno.env.get("SERPAPI_KEY");
+    const braveApiKey = Deno.env.get("BRAVE_API_KEY");
     const crawl4aiUrl = Deno.env.get("CRAWL4AI_URL") ?? "";
     const crawl4aiToken = Deno.env.get("CRAWL4AI_TOKEN") ?? "";
     if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
-    if (!serpApiKey) throw new Error("SERPAPI_KEY not set");
+    if (!braveApiKey) throw new Error("BRAVE_API_KEY not set");
 
     // 1. Parse location + filters
     console.log("Parsing intent:", message);
@@ -829,17 +837,17 @@ serve(async (req) => {
     console.log("Intent:", JSON.stringify(intent));
 
     // 2. Step A — discover real project names + metadata from editorial/news sources
-    const projectMetas = await findProjectNames(intent, serpApiKey, anthropicKey);
+    const projectMetas = await findProjectNames(intent, braveApiKey, anthropicKey);
 
     // 3. Step B — for each project, search for available developer units on portals
     //    Run listing search, TL4 rental search, and TL5 brickz search in parallel
     const metas = projectMetas.slice(0, 5);
     const [projectListingResults, rentalResults, brickzResults] = await Promise.all([
-      Promise.all(metas.map((meta) => searchProjectListings(meta.name, intent.area, serpApiKey))),
+      Promise.all(metas.map((meta) => searchProjectListings(meta.name, intent.area, braveApiKey))),
       // TL4: rental searches — needs avg_sqft estimate up front; use 850 as default
-      Promise.all(metas.map((meta) => searchRentalListings(meta.name, intent.area, 850, serpApiKey))),
+      Promise.all(metas.map((meta) => searchRentalListings(meta.name, intent.area, 850, braveApiKey))),
       // TL5: brickz transaction searches
-      Promise.all(metas.map((meta) => searchBrickzTransactions(meta.name, intent.area, serpApiKey))),
+      Promise.all(metas.map((meta) => searchBrickzTransactions(meta.name, intent.area, braveApiKey))),
     ]);
 
     // 4. Build project objects with financials
